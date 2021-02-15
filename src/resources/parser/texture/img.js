@@ -36,8 +36,16 @@ class ImgParser {
     }
 
     open(url, data, device) {
+        var urlWithoutParams = url.indexOf("?") >= 0 ? url.split("?")[0] : url;
+        var base = pc.path.getBasename(urlWithoutParams).toLowerCase();
         var ext = path.getExtension(url).toLowerCase();
-        var format = (ext === ".jpg" || ext === ".jpeg") ? PIXELFORMAT_R8_G8_B8 : PIXELFORMAT_R8_G8_B8_A8;
+        console.log(ext);
+        if (data instanceof ArrayBuffer) {
+            console.log('arrayBuffer');
+        } else if (data instanceof Image || data instanceof HTMLImageElement) {
+            console.log('image data');
+        }
+        var format = (ext === ".jpg" || ext === ".jpeg" ) ? PIXELFORMAT_R8_G8_B8 : PIXELFORMAT_R8_G8_B8_A8;
         var texture = new Texture(device, {
             name: url,
             // #ifdef PROFILER
@@ -52,6 +60,7 @@ class ImgParser {
     }
 
     _loadImage(url, originalUrl, crossOrigin, callback) {
+        console.log('loading image', callback.name);
         var image = new Image();
         if (crossOrigin) {
             image.crossOrigin = crossOrigin;
@@ -93,6 +102,7 @@ class ImgParser {
     }
 
     _loadImageBitmap(url, originalUrl, crossOrigin, callback) {
+        console.log('loading image bitmap');
         var options = {
             cache: true,
             responseType: "blob",

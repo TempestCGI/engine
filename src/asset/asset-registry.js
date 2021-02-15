@@ -341,7 +341,6 @@ class AssetRegistry extends EventHandler {
 
         var self = this;
         var file = asset.getPreferredFile();
-
         // open has completed on the resource
         var _opened = function (resource) {
             if (resource instanceof Array) {
@@ -387,7 +386,6 @@ class AssetRegistry extends EventHandler {
             // start loading the resource
             this.fire("load:start", asset);
             this.fire("load:" + asset.id + ":start", asset);
-
             asset.loading = true;
             self._loader.load(asset.getFileUrl(), asset.type, _loaded, asset);
         } else {

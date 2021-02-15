@@ -8,7 +8,7 @@
     <script src="../../build/playcanvas.js"></script>
     <script src="../../build/playcanvas-extras.js"></script>
     <style>
-        body { 
+        body {
             margin: 0;
             overflow-y: hidden;
         }
@@ -45,6 +45,7 @@
             app.resizeCanvas(canvas.width, canvas.height);
         });
 
+
         // display mini stats
         var miniStats = new pcx.MiniStats(app);
 
@@ -54,11 +55,32 @@
 
         // setup skydome
         app.scene.skyboxMip = 0;        // use top mipmap level of cubemap (full resolution)
-        app.scene.skyboxIntensity = 2;  // make it brighter
+        app.scene.skyboxIntensity = 3;  // make it brighter
+        app.scene.exposure = 1;
+        var hdr = {
+            name: 'hdr',
+            ddsPath: `http://localhost/app/configurator/assets/env/25/dds.do`,
+            textures: [
+                `http://localhost/app/configurator/assets/env/25/px.do`,
+                `http://localhost/app/configurator/assets/env/25/nx.do`,
+                `http://localhost/app/configurator/assets/env/25/py.do`,
+                `http://localhost/app/configurator/assets/env/25/ny.do`,
+                `http://localhost/app/configurator/assets/env/25/pz.do`,
+                `http://localhost/app/configurator/assets/env/25/nz.do`,
+            ]
 
+        };
+        // const textureAssets = [];
+        // for (let i = 0; i < hdr.textures.length; i++) {
+        //     const asset = new pc.Asset(hdr.name + '-' + i, 'texture', {url: hdr.textures[i]});
+        //     app.assets.add(asset); // assetRegistry 에 추가하지않으면 큐브맵에 텍스쳐가 적용이 안됨.
+        //     textureAssets.push(asset.id);
+        //     app.assets.load(asset);
+        // }
         // Load a cubemap asset. This DDS file was 'prefiltered' in the PlayCanvas Editor and then downloaded.
         var cubemapAsset = new pc.Asset('helipad.dds', 'cubemap', {
-            url: "../assets/cubemaps/helipad.dds"
+            // url: "../assets/cubemaps/GIPS_TEST_2.dds"
+            url: hdr.ddsPath
         }, {
             type: pc.TEXTURETYPE_RGBM
         });
@@ -68,9 +90,50 @@
             app.scene.setSkybox(cubemapAsset.resources);
         });
 
+
+
+        // BackplateCamera
+        var backplateCamera = new pc.Entity();
+        backplateCamera.name = 'backplateCamera';
+        backplateCamera.addComponent('camera');
+        backplateCamera.camera.layers = [4, 0];
+        backplateCamera.enabled = true;
+        backplateCamera.setPosition(1500, 1500, 0);
+        backplateCamera.dirtyLocal = false;
+        backplateCamera.dirtyWorld = false;
+        app.root.addChild(backplateCamera);
+
+        // Backplate
+        var backplate = new pc.Entity();
+        backplate.name = 'backplateEntity';
+        backplate.setPosition(1500, 1500, -100);
+        backplate.enabled = true;
+        backplate.setLocalScale(0.1, 0.1, 1);
+
+        app.root.addChild(backplate);
+        const backplateAsset= new pc.Asset(`plate_30`, 'texture', {
+            url: `http://localhost/app/configurator/plate/plateImage.do?plateId=30`
+        });
+        console.log(backplateAsset);
+        app.assets.add(backplateAsset);
+        app.assets.load(backplateAsset);
+
+        backplateAsset.ready(()=>{
+            var backplate = app.root.findByName("backplateEntity");
+            console.log(backplate);
+            backplate.element.width = 1024;
+            backplate.element.height = 768;
+            backplate.addComponent('element', {
+                type: 'image',
+                textureAsset: backplateAsset,
+                anchor: [0.5, 0.5, 0.5, 0.5],
+                pivot: [0.5, 0.5],
+            });
+        });
+
         // helper function to create high polygon version of a sphere and sets up an entity to allow it to be added to the scene
         var createHighQualitySphere = function (material, layer) {
-            
+
             // create hight resolution sphere
             var mesh = pc.createSphere(app.graphicsDevice, { latitudeBands: 200, longitudeBands: 200 });
 
@@ -136,7 +199,7 @@
         var worldLayer = app.scene.layers.getLayerByName("World");
         var skyboxLayer = app.scene.layers.getLayerByName("Skybox");
 
-        // add camera component to shiny ball - this defines camera properties for cubemap rendering 
+        // add camera component to shiny ball - this defines camera properties for cubemap rendering
         shinyBall.addComponent('camera', {
 
             // optimization - no need to clear as all pixels get overwritten
@@ -151,7 +214,7 @@
             // disable as this is not a camera that renders cube map but only a container for properties for cube map rendering
             enabled: false
         });
-        
+
         // add cubemapRenderer script component which takes care of rendering dynamic cubemap
         shinyBall.addComponent('script');
         shinyBall.script.create('cubemapRenderer', {
@@ -169,7 +232,7 @@
         shinyMat.useSkybox = false;
         shinyMat.cubeMap = shinyBall.script.cubemapRenderer.cubeMap;
 
-        // make it shiny without diffuse component        
+        // make it shiny without diffuse component
         shinyMat.metalness = 1;
         shinyMat.useMetalness = true;
         shinyMat.update();
@@ -210,21 +273,21 @@
 
         // update things each frame
         var time = 0;
-        app.on("update", function (dt) {
-            time += dt;
-
-            // rotate primitives around their center and also orbit them around the shiny sphere
-            for (var e = 0; e < entities.length; e++) {
-                var scale = (e + 1) / entities.length;
-                var offset = time + e * 200;
-                entities[e].setLocalPosition(7 * Math.sin(offset), 2 * (e - 3), 7 * Math.cos(offset));
-                entities[e].rotate(1 * scale, 2 * scale, 3 * scale);
-            }
-
-            // slowly orbit camera around
-            camera.setLocalPosition(20 * Math.cos(time * 0.2), 2, 20 * Math.sin(time * 0.2));
-            camera.lookAt(pc.Vec3.ZERO);
-        });
+        // app.on("update", function (dt) {
+        //     time += dt;
+        //
+        //     // rotate primitives around their center and also orbit them around the shiny sphere
+        //     for (var e = 0; e < entities.length; e++) {
+        //         var scale = (e + 1) / entities.length;
+        //         var offset = time + e * 200;
+        //         entities[e].setLocalPosition(7 * Math.sin(offset), 2 * (e - 3), 7 * Math.cos(offset));
+        //         entities[e].rotate(1 * scale, 2 * scale, 3 * scale);
+        //     }
+        //
+        //     // slowly orbit camera around
+        //     camera.setLocalPosition(20 * Math.cos(time * 0.2), 2, 20 * Math.sin(time * 0.2));
+        //     camera.lookAt(pc.Vec3.ZERO);
+        // });
     </script>
 </body>
 </html>

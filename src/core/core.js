@@ -20,6 +20,10 @@ var _typeLookup = function () {
     return result;
 }();
 
+// JWT Token for future purpose 
+// Luis Kim
+var token = null;
+
 var version = "__CURRENT_SDK_VERSION__";
 var revision = "__REVISION__";
 var config = { };
@@ -106,4 +110,4 @@ function isDefined(o) {
     return (o !== a);
 }
 
-export { apps, common, config, data, extend, isDefined, revision, type, version };
+export { apps, common, config, data, extend, isDefined, revision, type, version, token };

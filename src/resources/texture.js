@@ -200,7 +200,14 @@ class TextureHandler {
     }
 
     _getParser(url) {
+        var urlWithoutParams = url.indexOf("?") >= 0 ? url.split("?")[0] : url;
+        var base = pc.path.getBasename(urlWithoutParams).toLowerCase();
         var ext = path.getExtension(this._getUrlWithoutParams(url)).toLowerCase().replace('.', '');
+        // console.log(urlWithoutParams, base, ext);
+        // console.log(this.parsers[ext] || this.imgParser);
+        if (base === 'dds.do') {
+            ext = 'dds';
+        }
         return this.parsers[ext] || this.imgParser;
     }
 

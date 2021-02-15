@@ -95,6 +95,8 @@ class Mouse extends EventHandler {
         window.addEventListener("mousedown", this._downHandler, opts);
         window.addEventListener("mousemove", this._moveHandler, opts);
         window.addEventListener("wheel", this._wheelHandler, opts);
+        window.addEventListener("mousewheel", this._wheelHandler, {passive: false});
+        window.addEventListener("DOMMouseScroll", this._wheelHandler, false);
     }
 
     /**
@@ -112,6 +114,8 @@ class Mouse extends EventHandler {
         window.removeEventListener("mousedown", this._downHandler, opts);
         window.removeEventListener("mousemove", this._moveHandler, opts);
         window.removeEventListener("wheel", this._wheelHandler, opts);
+        window.removeEventListener("mousewheel", this._wheelHandler);
+        window.removeEventListener("DOMMouseScroll", this._wheelHandler);
     }
 
     /**

@@ -166,6 +166,56 @@ const target_release_es5 = {
     ]
 };
 
+const tempest_release_es5 = {
+    input: 'src/index.js',
+    output: {
+        banner: getBanner(''),
+        file: '../GIPS_Configurator/src/app/core/pc/playcanvas.js',
+        format: 'umd',
+        indent: '\t',
+        name: 'pc'
+    },
+    plugins: [
+        preprocessor({
+            PROFILER: false,
+            DEBUG: false,
+            RELEASE: true
+        }),
+        shaderChunks(true),
+        replace({
+            __REVISION__: revision,
+            __CURRENT_SDK_VERSION__: version
+        }),
+        babel(es5Options),
+        spacesToTabs()
+    ]
+};
+
+const tempest_release_es5min = {
+    input: 'src/index.js',
+    output: {
+        banner: getBanner(''),
+        file: '../GIPS_Configurator/src/app/core/pc/playcanvas.min.js',
+        format: 'umd',
+        indent: '\t',
+        name: 'pc'
+    },
+    plugins: [
+        preprocessor({
+            PROFILER: false,
+            DEBUG: false,
+            RELEASE: true
+        }),
+        shaderChunks(true),
+        replace({
+            __REVISION__: revision,
+            __CURRENT_SDK_VERSION__: version
+        }),
+        babel(es5Options),
+        terser()
+    ]
+};
+
 const target_release_es5min = {
     input: 'src/index.js',
     output: {
@@ -281,23 +331,42 @@ const target_extras = {
     ]
 };
 
+const tempest_target_extras = {
+    input: 'extras/index.js',
+    output: {
+        banner: getBanner(''),
+        file: '../GIPS_Configurator/src/app/core/pc/playcanvas-extras.js',
+        format: 'umd',
+        indent: '\t',
+        name: 'pcx'
+    },
+    plugins: [
+        babel(es5Options),
+        spacesToTabs()
+    ]
+};
+
 let targets = [
     target_release_es5,
     target_release_es5min,
     target_release_es6,
     target_debug,
     target_profiler,
-    target_extras
+    target_extras,
+    tempest_release_es5min,
+    tempest_target_extras,
+    tempest_release_es5
 ];
 
 // Build all targets by default, unless a specific target is chosen
 if (process.env.target) {
     switch (process.env.target.toLowerCase()) {
         case "es5":      targets = [target_release_es5,    target_extras]; break;
-        case "es5min":   targets = [target_release_es5min, target_extras]; break;
+        case "es5min":   targets = [target_release_es5min, target_extras, tempest_release_es5min, tempest_target_extras]; break;
         case "es6":      targets = [target_release_es6,    target_extras]; break;
         case "debug":    targets = [target_debug,          target_extras]; break;
         case "profiler": targets = [target_profiler,       target_extras]; break;
+        case "tempest": targets = [tempest_release_es5,       tempest_target_extras]; break;
     }
 }
 

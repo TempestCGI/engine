@@ -425,7 +425,7 @@ class Http {
                 xhr.setRequestHeader(header, options.headers[header]);
             }
         }
-
+        xhr.setRequestHeader('Authorization', 'Bearer ' + extend.token); // add by Jin-woo , Modified by Luis Kim
         xhr.onreadystatechange = function () {
             this._onReadyStateChange(method, url, options, xhr);
         }.bind(this);
