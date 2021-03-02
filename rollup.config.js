@@ -291,6 +291,31 @@ const target_debug = {
     ]
 };
 
+const tempest_target_debug = {
+    input: 'src/index.js',
+    output: {
+        banner: getBanner(' (DEBUG PROFILER)'),
+        file: '../GIPS_Configurator/src/app/core/pc/playcanvas.dbg.js',
+        format: 'umd',
+        indent: '\t',
+        name: 'pc'
+    },
+    plugins: [
+        preprocessor({
+            PROFILER: true,
+            DEBUG: true,
+            RELEASE: false
+        }),
+        shaderChunks(false),
+        replace({
+            __REVISION__: revision,
+            __CURRENT_SDK_VERSION__: version
+        }),
+        babel(es5Options),
+        spacesToTabs()
+    ]
+};
+
 const target_profiler = {
     input: 'src/index.js',
     output: {
@@ -366,7 +391,7 @@ if (process.env.target) {
         case "es6":      targets = [target_release_es6,    target_extras]; break;
         case "debug":    targets = [target_debug,          target_extras]; break;
         case "profiler": targets = [target_profiler,       target_extras]; break;
-        case "tempest": targets = [tempest_release_es5,       tempest_target_extras]; break;
+        case "tempest": targets = [tempest_release_es5,       tempest_target_extras, tempest_target_debug]; break;
     }
 }
 

@@ -16,6 +16,8 @@ var categories = [
     }, {
         name: "graphics",
         examples: [
+            "screen",
+            "background",
             "area-picker",
             "batching-dynamic",
             "grab-pass",

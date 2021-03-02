@@ -45,7 +45,14 @@ class ImgParser {
         } else if (data instanceof Image || data instanceof HTMLImageElement) {
             console.log('image data');
         }
-        var format = (ext === ".jpg" || ext === ".jpeg" ) ? PIXELFORMAT_R8_G8_B8 : PIXELFORMAT_R8_G8_B8_A8;
+        var format = null;
+
+        if (ext === ".jpg" || ext === ".jpeg" ) {
+            format = PIXELFORMAT_R8_G8_B8;
+        } else {
+            format =  PIXELFORMAT_R8_G8_B8_A8;
+        }
+        console.log('Format : ' + format);
         var texture = new Texture(device, {
             name: url,
             // #ifdef PROFILER
@@ -55,12 +62,15 @@ class ImgParser {
             height: data.height,
             format: format
         });
+        console.log('Data : ', data);
         texture.setSource(data);
         return texture;
     }
 
     _loadImage(url, originalUrl, crossOrigin, callback) {
-        console.log('loading image', callback.name);
+        console.log('Load Image Url : ' + url);
+        console.log('Load Image Original Url : ' + originalUrl);
+        console.log('Cross Origin : ' + crossOrigin);
         var image = new Image();
         if (crossOrigin) {
             image.crossOrigin = crossOrigin;

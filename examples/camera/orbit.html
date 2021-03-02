@@ -8,7 +8,7 @@
     <script src="../../build/playcanvas.js"></script>
     <script src="../../build/playcanvas-extras.js"></script>
     <style>
-        body { 
+        body {
             margin: 0;
             overflow-y: hidden;
         }
@@ -51,6 +51,7 @@
             }
         ];
 
+        var worldLayer = app.scene.layers.getLayerByName("World");
         // Load all assets and then run the example
         var assetsToLoad = assetManifest.length;
         assetManifest.forEach(function (entry) {
@@ -64,6 +65,7 @@
                 }
             });
         });
+
 
         function run() {
             // Create a model entity and assign the statue model
@@ -98,6 +100,35 @@
             light.setLocalEulerAngles(45, 30, 0);
 
             app.start();
+
+
+
+
+            var backplateEnitty = new pc.Entity();
+            backplateEnitty.name = 'backplateEntity';
+            backplateEnitty.setPosition(0, 0, -20);
+            backplateEnitty.enabled = true;
+            // backplateEnitty.setLocalScale(0.5, 0.5,1);
+            app.root.addChild(backplateEnitty);
+
+            var backplate = new pc.Asset('backplate', 'texture', {
+                // url: '../assets/cubemaps/GIPS_TEST_2.jpg'
+                url: '/app/configurator/plate/plateImage.do?plateId=30'
+            });
+            app.assets.add(backplate);
+            backplate.ready(() => {
+                console.log('backplate is ready', backplate);
+
+            });
+
+            backplateEnitty.addComponent('element', {
+                type: 'screen',
+                textureAsset: backplate,
+                anchor: [0.5, 0.5, 0.5, 0.5],
+                pivot: [0.5, 0.5]
+            });
+
+            backplateEnitty.element.layers = [pc.LAYERID_UI];
         }
     </script>
 </body>

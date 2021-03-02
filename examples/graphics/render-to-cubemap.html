@@ -49,14 +49,14 @@
         // display mini stats
         var miniStats = new pcx.MiniStats(app);
 
-        // set up some general scene rendering properties
-        app.scene.gammaCorrection = pc.GAMMA_SRGB;
-        app.scene.toneMapping = pc.TONEMAP_ACES;
+        // get world and skybox layers
+        var worldLayer = app.scene.layers.getLayerByName("World");
+        var skyboxLayer = app.scene.layers.getLayerByName("Skybox");
+        var backgroundLayer = new pc.Layer({ name: 'backgroundLayer'});
+        // create a layer for object that do not render into texture
+        var excludedLayer = new pc.Layer({ name: "Excluded" });
+        app.scene.layers.push(excludedLayer);
 
-        // setup skydome
-        app.scene.skyboxMip = 0;        // use top mipmap level of cubemap (full resolution)
-        app.scene.skyboxIntensity = 3;  // make it brighter
-        app.scene.exposure = 1;
         var hdr = {
             name: 'hdr',
             ddsPath: `http://localhost/app/configurator/assets/env/25/dds.do`,
@@ -70,19 +70,26 @@
             ]
 
         };
-        // const textureAssets = [];
-        // for (let i = 0; i < hdr.textures.length; i++) {
-        //     const asset = new pc.Asset(hdr.name + '-' + i, 'texture', {url: hdr.textures[i]});
-        //     app.assets.add(asset); // assetRegistry 에 추가하지않으면 큐브맵에 텍스쳐가 적용이 안됨.
-        //     textureAssets.push(asset.id);
-        //     app.assets.load(asset);
-        // }
+        var textureAssets = [];
+        for (let i = 0; i < hdr.textures.length; i++) {
+            const asset = new pc.Asset(hdr.name + '-' + i, 'texture', {url: hdr.textures[i]});
+            app.assets.add(asset); // assetRegistry 에 추가하지않으면 큐브맵에 텍스쳐가 적용이 안됨.
+            textureAssets.push(asset.id);
+            app.assets.load(asset);
+        }
         // Load a cubemap asset. This DDS file was 'prefiltered' in the PlayCanvas Editor and then downloaded.
-        var cubemapAsset = new pc.Asset('helipad.dds', 'cubemap', {
+        var cubemapAsset = new pc.Asset(hdr.name, 'cubemap', {
             // url: "../assets/cubemaps/GIPS_TEST_2.dds"
+            // url: "../assets/cubemaps/sample_5184×3456.dds"
             url: hdr.ddsPath
         }, {
-            type: pc.TEXTURETYPE_RGBM
+            anisotropy:1,
+            magFilter:1,
+            minFilter: 5,
+            rgbm: true,
+            textures: textureAssets,
+            type: pc.TEXTURETYPE_RGBM,
+            prefilterCubemap: 'dds.do'
         });
         app.assets.add(cubemapAsset);
         app.assets.load(cubemapAsset);
@@ -91,45 +98,49 @@
         });
 
 
+        // set up some general scene rendering properties
+        app.scene.gammaCorrection = pc.GAMMA_SRGB;
+        app.scene.toneMapping = pc.TONEMAP_ACES;
 
-        // BackplateCamera
-        var backplateCamera = new pc.Entity();
-        backplateCamera.name = 'backplateCamera';
-        backplateCamera.addComponent('camera');
-        backplateCamera.camera.layers = [4, 0];
-        backplateCamera.enabled = true;
-        backplateCamera.setPosition(1500, 1500, 0);
-        backplateCamera.dirtyLocal = false;
-        backplateCamera.dirtyWorld = false;
-        app.root.addChild(backplateCamera);
+        // setup skydome
+        app.scene.skyboxMip = 0;        // use top mipmap level of cubemap (full resolution)
+        app.scene.skyboxIntensity = 3;  // make it brighter
+        app.scene.exposure = 1;
+
+        var backgroundCamera = new pc.Entity();
+        backgroundCamera.addComponent("camera", {
+            // clearColor: new pc.Color(0.4, 0.45, 0.5),
+            layers: [backgroundLayer.id],
+            enabled: true
+        });
+        backgroundCamera.setPosition(0, 0, -10);
+        // camera.translate(0, 0, 24);
+        app.root.addChild(backgroundCamera);
 
         // Backplate
-        var backplate = new pc.Entity();
-        backplate.name = 'backplateEntity';
-        backplate.setPosition(1500, 1500, -100);
-        backplate.enabled = true;
-        backplate.setLocalScale(0.1, 0.1, 1);
+        var backplateEntity = new pc.Entity();
+        backplateEntity.name = 'backplateEntity';
+        backplateEntity.enabled = true;
+        app.root.addChild(backplateEntity);
 
-        app.root.addChild(backplate);
-        const backplateAsset= new pc.Asset(`plate_30`, 'texture', {
-            url: `http://localhost/app/configurator/plate/plateImage.do?plateId=30`
+        var backplate = new pc.Asset('backplate', 'texture', {
+            // url: '../assets/cubemaps/GIPS_TEST_2.jpg'
+            url: '/app/configurator/plate/plateImage.do?plateId=30'
         });
-        console.log(backplateAsset);
-        app.assets.add(backplateAsset);
-        app.assets.load(backplateAsset);
+        app.assets.add(backplate);
+        backplate.ready(() => {
+            console.log('backplate is ready', backplate);
 
-        backplateAsset.ready(()=>{
-            var backplate = app.root.findByName("backplateEntity");
-            console.log(backplate);
-            backplate.element.width = 1024;
-            backplate.element.height = 768;
-            backplate.addComponent('element', {
-                type: 'image',
-                textureAsset: backplateAsset,
-                anchor: [0.5, 0.5, 0.5, 0.5],
-                pivot: [0.5, 0.5],
-            });
         });
+
+        backplateEntity.addComponent('element', {
+            type: 'image',
+            textureAsset: backplate,
+            anchor: [0.5, 0.5, 0.5, 0.5],
+            pivot: [0.5, 0.5],
+            layer: [ worldLayer.id, backgroundLayer.id]
+        });
+
 
         // helper function to create high polygon version of a sphere and sets up an entity to allow it to be added to the scene
         var createHighQualitySphere = function (material, layer) {
@@ -183,9 +194,8 @@
             return primitive;
         }
 
-        // create a layer for object that do not render into texture
-        var excludedLayer = new pc.Layer({ name: "Excluded" });
-        app.scene.layers.push(excludedLayer);
+
+
 
         // create material for the shiny ball
         var shinyMat = new pc.StandardMaterial();
@@ -195,15 +205,14 @@
         shinyBall.setLocalPosition(0, 0, 0);
         shinyBall.setLocalScale(10, 10, 10);
 
-        // get world and skybox layers
-        var worldLayer = app.scene.layers.getLayerByName("World");
-        var skyboxLayer = app.scene.layers.getLayerByName("Skybox");
+
+
 
         // add camera component to shiny ball - this defines camera properties for cubemap rendering
         shinyBall.addComponent('camera', {
 
             // optimization - no need to clear as all pixels get overwritten
-            clearColorBuffer: false,
+            clearColorBuffer: true,
 
             // cubemap camera will render objects on world layer and also skybox
             layers: [worldLayer.id, skyboxLayer.id],
@@ -219,7 +228,7 @@
         shinyBall.addComponent('script');
         shinyBall.script.create('cubemapRenderer', {
             attributes: {
-                resolution: 256,
+                resolution: 1024,
                 mipmaps: true,
                 depth: true
             }
@@ -239,12 +248,12 @@
 
         // create few random primitives in the world layer
         var entities = [];
-        var shapes = ["box", "cone", "cylinder", "sphere", "capsule"];
-        for (var i = 0; i < 6; i++) {
-            var shapeName = shapes[Math.floor(Math.random() * shapes.length)];
-            var color = new pc.Color(Math.random(), Math.random(), Math.random());
-            entities.push(createPrimitive(shapeName, pc.Vec3.ZERO, new pc.Vec3(3, 3, 3), color, [worldLayer.id]));
-        }
+        // var shapes = ["box", "cone", "cylinder", "sphere", "capsule"];
+        // for (var i = 0; i < 6; i++) {
+        //     var shapeName = shapes[Math.floor(Math.random() * shapes.length)];
+        //     var color = new pc.Color(Math.random(), Math.random(), Math.random());
+        //     entities.push(createPrimitive(shapeName, pc.Vec3.ZERO, new pc.Vec3(3, 3, 3), color, [worldLayer.id]));
+        // }
 
         // create green plane as a base to cast shadows on
         createPrimitive("plane", new pc.Vec3(0, -8, 0), new pc.Vec3(20, 20, 20), new pc.Color(0.3, 0.5, 0.3), [worldLayer.id]);
@@ -252,9 +261,10 @@
         // Create main camera, which renders entities in world, excluded and skybox layers
         var camera = new pc.Entity("MainCamera");
         camera.addComponent("camera", {
-            fov: 60,
-            layers: [worldLayer.id, excludedLayer.id, skyboxLayer.id]
+            fov: 50,
+            layers: [worldLayer.id, excludedLayer.id, backgroundLayer.id ]
         });
+        console.log(camera.getLocalPosition());
         app.root.addChild(camera);
 
         // Create an Entity with a directional light component
@@ -272,7 +282,7 @@
         app.root.addChild(light);
 
         // update things each frame
-        var time = 0;
+        // var time = 0;
         // app.on("update", function (dt) {
         //     time += dt;
         //

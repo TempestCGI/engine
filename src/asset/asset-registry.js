@@ -383,6 +383,9 @@ class AssetRegistry extends EventHandler {
         };
 
         if (file || asset.type === 'cubemap') {
+            console.log('Loader : ', self._loader);
+            console.log('File : ', file);
+            console.log('Asset Type : ' + asset.type);
             // start loading the resource
             this.fire("load:start", asset);
             this.fire("load:" + asset.id + ":start", asset);
