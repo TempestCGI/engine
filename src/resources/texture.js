@@ -200,8 +200,17 @@ class TextureHandler {
     }
 
     _getParser(url) {
+        var base = path.getBasename(this._getUrlWithoutParams(url)).toLowerCase();
         var ext = path.getExtension(this._getUrlWithoutParams(url)).toLowerCase().replace('.', '');
-        return this.parsers[ext] || this.imgParser;
+        if (base === 'dds.do') {
+            ext = 'dds';
+        } else if (base === 'hdr.do') {
+            ext = 'hdr';
+        }
+        console.log('parsers : ', this.parsers);
+        var parser = this.parsers[ext] || this.imgParser;
+        console.log(parser);
+        return parser;
     }
 
     load(url, callback, asset) {
