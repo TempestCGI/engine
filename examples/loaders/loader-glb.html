@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="../playcanvas-favicon.png" />
     <script src="../../build/playcanvas.js"></script>
     <style>
-        body { 
+        body {
             margin: 0;
             overflow-y: hidden;
         }
@@ -36,7 +36,9 @@
         app.scene.ambientLight = new pc.Color(0.2, 0.2, 0.2);
 
         // Load a model file and create a Entity with a model component
-        var url = "../assets/models/playcanvas-cube.glb";
+        // var url = "../assets/models/playcanvas-cube.glb";
+        var url = "http://localhost/app/product/part/glb.do?productCode=IK_G70_PE_21MY_KOR_ALL_EXT_V1&partCode=924A3G9500";
+        // var url = "http://localhost/app/product/part/glb.do?productCode=IK_G70_PE_21MY_KOR_ALL_EXT_V1&partCode=playcanvas-cube";
         app.assets.loadFromUrl(url, "container", function (err, asset) {
             app.start();
 
@@ -64,11 +66,11 @@
             light.setLocalPosition(1, 1, 5);
             app.root.addChild(light);
 
-            app.on("update", function (dt) {
-                if (entity) {
-                    entity.rotate(0, 10 * dt, 0);
-                }
-            });
+            // app.on("update", function (dt) {
+            //     if (entity) {
+            //         entity.rotate(0, 10 * dt, 0);
+            //     }
+            // });
         });
     </script>
 </body>

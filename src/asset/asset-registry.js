@@ -389,6 +389,7 @@ class AssetRegistry extends EventHandler {
             this.fire("load:" + asset.id + ":start", asset);
 
             asset.loading = true;
+            console.log(self._loader);
             self._loader.load(asset.getFileUrl(), asset.type, _loaded, asset);
         } else {
             // asset has no file to load, open it directly
@@ -417,6 +418,95 @@ class AssetRegistry extends EventHandler {
 
     /**
      * @function
+     * @name AssetRegistry#customLoadFromUrl
+     * @description Use this to load and create an asset if you don't have assets created. Usually you would only use this
+     * if you are not integrated with the PlayCanvas Editor.
+     * @param {string} url - The url to load.
+     * @param {string} type - The type of asset to load.
+     * @param {string} materialName - The actual material name to load
+     * @param {string} policyKey - The policy key to load asset from aws cdn
+     * @param {callbacks.LoadAsset} callback - Function called when asset is loaded, passed (err, asset), where err is null if no errors were encountered.
+     * @example
+     * app.assets.loadFromUrl("../path/to/texture.jpg", "texture", function (err, asset) {
+     *     var texture = asset.resource;
+     * });
+     */
+    customLoadFromUrl(url, type, materialName, policyKey, callback) {
+        this.customLoadFromUrlAndFilename(url, materialName, type,  policyKey, callback);
+    }
+
+    /**
+     * @function
+     * @name AssetRegistry#customLoadFromUrlAndFilename
+     * @description Use this to load and create an asset when both the URL and filename are required. For example, use this function when loading
+     * BLOB assets, where the URL does not adequately identify the file.
+     * @param {string} url - The url to load.
+     * @param {string} filename - The filename of the asset to load.
+     * @param {string} type - The type of asset to load.
+     * @param {string} materialName - The actual material name to load
+     * @param {string} policyKey - The policy key to load asset from aws cdn
+     * @param {callbacks.LoadAsset} callback - Function called when asset is loaded, passed (err, asset), where err is null if no errors were encountered.
+     * @example
+     * var file = magicallyAttainAFile();
+     * app.assets.loadFromUrlAndFilename(URL.createObjectURL(file), "texture.png", "texture", function (err, asset) {
+     *     var texture = asset.resource;
+     * });
+     */
+    customLoadFromUrlAndFilename(url, filename, type, policyKey, callback) {
+        var self = this;
+        var name = path.getBasename(filename || url);
+
+        var file = {
+            filename: filename || name,
+            url: url
+        };
+        var asset = self.getByUrl(url);
+
+        if (!asset) {
+            asset = new Asset(name, type, file);
+            self.add(asset);
+        } else if (asset.loaded) {
+            // asset is already loaded
+            callback(asset.loadFromUrlError || null, asset);
+            return;
+        }
+
+        var startLoad = function (asset) {
+            var parent = self;
+            asset.once("load", function (loadedAsset) {
+                // apply the public key to the loadedAsset object if it is valid
+                if (parent.publicKey !== undefined && parent.publicKey !== null) {
+                    loadedAsset.publicKey = parent.publicKey;
+                }
+                if (type === 'material') {
+                    self._loadTextures(loadedAsset, function (err, textures) {
+                        callback(err, loadedAsset);
+                    });
+                } else {
+                    callback(null, loadedAsset);
+                }
+            });
+            asset.once("error", function (err) {
+                // store the error on the asset in case user requests this asset again
+                if (err) {
+                    this.loadFromUrlError = err;
+                }
+                callback(err, asset);
+            });
+            self.load(asset);
+        };
+
+        if (asset.resource) {
+            callback(null, asset);
+        } else if (type === 'model') {
+            self._loadModel(asset, startLoad);
+        } else {
+            startLoad(asset);
+        }
+    }
+
+    /**
+     * @function
      * @name AssetRegistry#loadFromUrlAndFilename
      * @description Use this to load and create an asset when both the URL and filename are required. For example, use this function when loading
      * BLOB assets, where the URL does not adequately identify the file.
@@ -432,15 +522,14 @@ class AssetRegistry extends EventHandler {
      */
     loadFromUrlAndFilename(url, filename, type, callback) {
         var self = this;
-
         var name = path.getBasename(filename || url);
 
         var file = {
             filename: filename || name,
             url: url
         };
-
         var asset = self.getByUrl(url);
+
         if (!asset) {
             asset = new Asset(name, type, file);
             self.add(asset);
@@ -485,8 +574,7 @@ class AssetRegistry extends EventHandler {
 
         var url = modelAsset.getFileUrl();
         var ext = path.getExtension(url);
-
-        if (ext === '.json' || ext === '.glb') {
+        if (ext === '.json' || ext === '.glb' ) {
             var dir = path.getDirectory(url);
             var basename = path.getBasename(url);
 
@@ -541,10 +629,11 @@ class AssetRegistry extends EventHandler {
     // private method used for engine-only loading of the textures referenced by
     // the material asset
     _loadTextures(materialAsset, callback) {
+        console.log(materialAsset);
         var self = this;
         var textures = [];
         var count = 0;
-
+        console.log(materialAsset);
         var data = materialAsset.data;
         if (data.mappingFormat !== 'path') {
             // #ifdef DEBUG

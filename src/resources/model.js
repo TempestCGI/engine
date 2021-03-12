@@ -24,7 +24,7 @@ class ModelHandler {
             return (path.getExtension(url) === '.json');
         });
         this.addParser(new GlbModelParser(this._device), function (url, data) {
-            return (path.getExtension(url) === '.glb');
+            return (path.getExtension(url) === '.glb' || path.getBasename(url) === 'glb.do');
         });
     }
 
