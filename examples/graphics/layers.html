@@ -18,7 +18,7 @@
 <body>
     <!-- The canvas element -->
     <canvas id="application-canvas"></canvas>
-
+    <a onclick="javascript:toggleBackplateCamera()">Backplate Camera</a>
     <!-- The script -->
     <script>
 
@@ -168,9 +168,10 @@
         // Create an Entity with a camera component
         // Make sure it renders both World and Front Layer
         var camera = new pc.Entity();
+        camera.name = 'backplateCamera';
         camera.addComponent("camera", {
             clearColor: new pc.Color(0.4, 0.45, 0.5),
-            layers: [topLayer.id, frontLayer.id, backplateLayer.id, worldLayer.id]
+            layers: [ backplateLayer.id]
         });
         camera.translate(0, 0, 24);
         app.root.addChild(camera);
@@ -313,7 +314,7 @@
                         var orbitCamera = new pc.Entity();
                         orbitCamera.addComponent("camera", {
                             clearColor: new pc.Color(0.4, 0.45, 0.5),
-                            layers: [topLayer.id, frontLayer.id, backplateLayer.id, worldLayer.id]
+                            layers: [topLayer.id, frontLayer.id, worldLayer.id]
                         });
                         orbitCamera.addComponent("script");
                         orbitCamera.script.create("orbitCamera", {
@@ -329,7 +330,10 @@
             });
         });
 
-
+        function toggleBackplateCamera() {
+            console.log(app.root.findByName('backplateCamera'));
+            app.root.findByName('backplateCamera').enabled = !app.root.findByName('backplateCamera').enabled;
+        }
     </script>
 </body>
 </html>
