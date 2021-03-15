@@ -170,7 +170,7 @@
         var camera = new pc.Entity();
         camera.addComponent("camera", {
             clearColor: new pc.Color(0.4, 0.45, 0.5),
-            layers: [topLayer, frontLayer, backplateLayer, worldLayer]
+            layers: [topLayer.id, frontLayer.id, backplateLayer.id, worldLayer.id]
         });
         camera.translate(0, 0, 24);
         app.root.addChild(camera);
