@@ -16,6 +16,8 @@ var categories = [
     }, {
         name: "graphics",
         examples: [
+            "screen",
+            "background",
             "area-picker",
             "batching-dynamic",
             "grab-pass",
@@ -53,8 +55,7 @@ var categories = [
             "shader-toon",
             "shader-wobble",
             "texture-basis",
-            "transform-feedback",
-            "video-texture"
+            "transform-feedback"
         ]
     }, {
         name: "loaders",

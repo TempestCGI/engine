@@ -318,7 +318,6 @@ class Http {
      * @returns {XMLHttpRequest} The request object.
      */
     request(method, url, options, callback) {
-        console.log(method, url);
         var uri, query, timestamp, postdata, xhr;
         var errored = false;
 

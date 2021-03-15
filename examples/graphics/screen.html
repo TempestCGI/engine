@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PlayCanvas Background</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link rel="icon" type="image/png" href="../playcanvas-favicon.png" />
+    <script src="../../build/playcanvas.js"></script>
+    <script src="../../build/playcanvas-extras.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow-y: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- The canvas element -->
+    <canvas id="application-canvas" width="1024" height="768"></canvas>
+
+    <!-- The script -->
+    <script>
+        var canvas = document.getElementById("application-canvas");
+
+        // Create the app and start the update loop
+        var app = new pc.Application(canvas);
+        app.start();
+
+        // Set the canvas to fill the window and automatically change resolution to be the same as the canvas size
+        app.setCanvasFillMode(pc.FILLMODE_NONE);
+        app.setCanvasResolution(pc.RESOLUTION_AUTO);
+
+        window.addEventListener("resize", function () {
+            app.resizeCanvas(canvas.width, canvas.height);
+        });
+
+        var miniStats = new pcx.MiniStats(app);
+
+        app.scene.ambientLight = new pc.Color(0.2, 0.2, 0.2);
+
+        var screenLayer = new pc.Layer({name: 'screenLayer'});
+        console.log(screenLayer);
+
+        var screenEntity = new pc.Entity('screenEntity');
+        screenEntity.enabled = true;
+
+        screenEntity.addComponent('screen', { resolution: new pc.Vec2(1024,768) });
+
+        console.log(screenEntity);
+        app.root.addChild(screenEntity);
+        // Create camera
+        var camera = new pc.Entity();
+        camera.addComponent("camera", { clearColor: new pc.Color(0.8, 0.8, 0.8) });
+        app.root.addChild(camera);
+        camera.setPosition(0, 0, 7);
+
+        // Create cube
+        var box = new pc.Entity();
+        box.addComponent("model", { type: "box" });
+        app.root.addChild(box);
+        box.rotate(10, 15, 0);
+
+        // Create light
+        var light = new pc.Entity();
+        light.addComponent('light');
+        light.rotate(45, 0, 0);
+        app.root.addChild(light);
+        app.scene.ambientLight = new pc.Color(0.2, 0.2, 0.2);
+
+        // Create cube's material
+        var boxMaterial = new pc.PhongMaterial();
+        boxMaterial.diffuse.set(0, 0.58, 0.86);
+        boxMaterial.update();
+        box.model.model.meshInstances[0].material = boxMaterial;
+
+
+        var backplateEntity = new pc.Entity();
+        backplateEntity.name = 'backplateEntity';
+        // backplateEntity.setPosition(0, 0, -10);
+        backplateEntity.enabled = true;
+
+
+        // backplateEntity.setLocalScale(0.1, 0.1, 1);
+        // app.root.addChild(backplateEntity);
+
+        var backplate = new pc.Asset('backplate', 'texture', {
+            // url: '../assets/cubemaps/GIPS_TEST_2.jpg'
+            url: '/app/configurator/plate/plateImage.do?plateId=30'
+        });
+        app.assets.add(backplate);
+        backplate.ready(() => {
+            console.log('backplate is ready', backplate);
+
+
+        });
+
+        backplateEntity.addComponent('element', {
+            type: 'image',
+            textureAsset: backplate,
+            anchor: [0,5,0,5, 0.5, 0.5],
+            pivot: [0,5, 0,5],
+        });
+        // backplateEntity.element.width = canvas.width / 100;
+        // backplateEntity.element.height = canvas.width / 100;
+        screenEntity.addChild(backplateEntity);
+    </script>
+</body>
+</html>

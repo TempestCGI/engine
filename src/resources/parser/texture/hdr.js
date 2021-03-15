@@ -170,7 +170,6 @@ class HdrParser {
         var buffer = new ArrayBuffer(width * height * 4);
         var view = new Uint8Array(buffer);
         var scanstart = flipY ? width * 4 * (height - 1) : 0;
-        console.log(scanstart);
         var x, y, i, channel, count, value;
 
         for (y = 0; y < height; ++y) {
@@ -178,11 +177,10 @@ class HdrParser {
             reader.readUint8s(rgbe);
 
             // sanity check it
-            console.log(rgbe[2], rgbe[2] << 8 + rgbe[3], width);
-            // if (rgbe[2] << 8 + rgbe[3] != width) {
-            //     this._error("radiance has invalid scanline width");
-            //     return null;
-            // }
+            if ((rgbe[2] << 8) + rgbe[3] != width) {
+                this._error("radiance has invalid scanline width");
+                return null;
+            }
 
             // each scanline is stored by channel
             for (channel = 0; channel < 4; ++channel) {

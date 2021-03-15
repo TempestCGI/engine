@@ -389,7 +389,6 @@ class AssetRegistry extends EventHandler {
             this.fire("load:" + asset.id + ":start", asset);
 
             asset.loading = true;
-            console.log(self._loader);
             self._loader.load(asset.getFileUrl(), asset.type, _loaded, asset);
         } else {
             // asset has no file to load, open it directly
@@ -629,11 +628,9 @@ class AssetRegistry extends EventHandler {
     // private method used for engine-only loading of the textures referenced by
     // the material asset
     _loadTextures(materialAsset, callback) {
-        console.log(materialAsset);
         var self = this;
         var textures = [];
         var count = 0;
-        console.log(materialAsset);
         var data = materialAsset.data;
         if (data.mappingFormat !== 'path') {
             // #ifdef DEBUG

@@ -209,9 +209,7 @@ class TextureHandler {
         } else if (base === 'hdr.do') {
             ext = 'hdr';
         }
-        console.log('parsers : ', this.parsers);
         var parser = this.parsers[ext] || this.imgParser;
-        console.log(parser);
         return parser;
     }
 

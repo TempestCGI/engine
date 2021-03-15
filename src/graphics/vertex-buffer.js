@@ -34,6 +34,8 @@ class VertexBuffer{
         // Allocate the storage
         if (initialData) {
             this.setData(initialData);
+        } else if ( numVertices === 0 ) {
+            this.storage = new ArrayBuffer(160);
         } else {
             this.storage = new ArrayBuffer(this.numBytes);
         }

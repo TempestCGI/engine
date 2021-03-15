@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PlayCanvas Layers</title>
+    <title>PlayCanvas Background</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link rel="icon" type="image/png" href="../playcanvas-favicon.png" />
@@ -17,14 +17,15 @@
 
 <body>
     <!-- The canvas element -->
-    <canvas id="application-canvas"></canvas>
+    <canvas id="application-canvas" width="1024" height="768"></canvas>
 
     <!-- The script -->
     <script>
         var canvas = document.getElementById("application-canvas");
-
         var canvasWidth = 1024;
         var canvasHeight = 768;
+
+
         // Create the app and start the update loop
         var app = new pc.Application(canvas);
         app.start();
@@ -34,9 +35,8 @@
         app.setCanvasResolution(pc.RESOLUTION_FIXED, canvasWidth, canvasHeight);
 
         // window.addEventListener("resize", function () {
-        app.resizeCanvas(canvasWidth, canvasHeight);
+            app.resizeCanvas(canvasWidth, canvasHeight);
         // });
-
 
         var miniStats = new pcx.MiniStats(app);
 
@@ -45,56 +45,28 @@
         var entity, light, camera;
 
         // Create a new layer to put in front of everything
-        var frontLayer = new pc.Layer({
+        var layer = new pc.Layer({
             name: "Front Layer"
         });
 
-
-        var backgroundLayer = new pc.Layer({name: 'Background Layer'})
-
         // get the world layer index
         var worldLayer = app.scene.layers.getLayerByName("World");
-
-        var worldLayerIdx = app.scene.layers.getTransparentIndex(worldLayer);
-
-
-        app.scene.layers.insert(backgroundLayer, worldLayerIdx + 1);
-        var backgroundLayerIdx = app.scene.layers.getTransparentIndex(backgroundLayer);
+        var idx = app.scene.layers.getTransparentIndex(worldLayer);
 
         // insert the new layer after the world layer
-        app.scene.layers.insert(frontLayer, backgroundLayer+ 1);
-        var frontLayerIdx = app.scene.layers.getTransparentIndex(frontLayer);
-
+        app.scene.layers.insert(layer, idx + 1);
 
         // Create an Entity with a camera component
         // Make sure it renders both World and Front Layer
         var camera = new pc.Entity();
         camera.addComponent("camera", {
-            clearColor: new pc.Color(0.4, 0.45, 0.5),
-            layers: [worldLayer.id, frontLayer.id, backgroundLayer.id]
+            // clearColor: new pc.Color(0.4, 0.45, 0.5),
+            layers: [worldLayer.id, layer.id]
         });
+        camera.fov = 42;
         camera.setPosition(1500, 1500, 0);
-        camera.translate(0, 0, 24);
+        // camera.translate(0, 0, 24);
         app.root.addChild(camera);
-
-
-
-
-        // Create an Entity with a camera component
-        // Make sure it renders both World and Front Layer
-        // var camera2 = new pc.Entity();
-        // camera2.addComponent("camera2", {
-        //     // clearColor: new pc.Color(0.4, 0.45, 0.5),
-        //     layers: [worldLayer.id, frontLayer.id, backgroundLayer.id]
-        // });
-        // camera2.fov = 42;
-        // camera2.setPosition(1500, 1500, 0);
-        // camera2.translate(0, 0, 24);
-        // camera2.enabled = false;
-        // app.root.addChild(camera2);
-
-
-
 
         // Create an Entity with a point light component
         // Make sure it lights both World and Front Layer
@@ -103,50 +75,31 @@
             type: "point",
             color: new pc.Color(1, 1, 1),
             range: 100,
-            layers: [worldLayer.id, frontLayer.id]
+            layers: [worldLayer.id, layer.id]
         });
         light.translate(5, 0, 15);
         app.root.addChild(light);
+
 
         // red material is semi-transparent
         var red = new pc.StandardMaterial();
         red.diffuse.set(1, 0, 0);
         red.blendType = pc.BLEND_NORMAL;
         red.opacity = 0.5;
+        red.depthTest = false;
         red.update();
-
-        // blue material does not test the existing depth buffer
-        var blue = new pc.StandardMaterial();
-        blue.diffuse.set(0, 0, 1);
-        blue.depthTest = false;
-        blue.update();
-
-
-
 
         // red box is rendered first in World layer
         var redBox = new pc.Entity();
         redBox.addComponent('model', {
-            type: 'box'
+            type: 'box',
+            layers: [layer]
         });
         redBox.model.material = red;
         redBox.setLocalScale(5, 5, 5);
-        redBox.setPosition(1500, 1500, -20);
+        redBox.setPosition(1500, 1500, -50);
         app.root.addChild(redBox);
 
-        // blue box is rendered in the Front Layer which is after World
-        // because it does not test for depth
-        // and is in a later layer
-        // it is visible even though it should be inside the red box
-        var blueBox = new pc.Entity();
-        blueBox.addComponent('model', {
-            type: 'box',
-            layers: [frontLayer.id] // try removing this line, the blue box will appear inside the red one
-        });
-        blueBox.model.material = blue;
-        blueBox.setLocalScale(2.5, 2.5, 2.5);
-        blueBox.setPosition(1500, 1500, -10);
-        app.root.addChild(blueBox);
 
 
         var backplateEntity = new pc.Entity();
@@ -154,22 +107,24 @@
         backplateEntity.setPosition(1500, 1500, -100);
         backplateEntity.enabled = true;
         backplateEntity.setLocalScale(0.1, 0.1, 1);
+        app.root.addChild(backplateEntity);
 
         var backplate = new pc.Asset('backplate', 'texture', {
             // url: '../assets/cubemaps/GIPS_TEST_2.jpg'
             url: '/app/configurator/plate/plateImage.do?plateId=30'
         });
-        app.assets.add(backplate);
 
+
+        app.assets.add(backplate);
         backplate.ready((backplateAsset) => {
             console.log(backplateAsset);
-
             var backplateAssetWidth = backplateAsset.resources[0].width;
             var backplateAssetHeight = backplateAsset.resources[0].height;
 
             var widthRatio = Math.abs(canvasWidth - backplateAssetWidth) / canvasWidth;
             var heightRatio = Math.abs(canvasHeight - backplateAssetHeight) / canvasHeight;
             console.log('backplate is ready', backplate);
+
 
             if (widthRatio < heightRatio) {
 
@@ -189,25 +144,21 @@
                     backplateEntity.element.height = (backplateAssetHeight * canvasWidth) / backplateAssetWidth;
                 }
             }
+
         });
 
         backplateEntity.addComponent('element', {
             type: 'image',
             textureAsset: backplate,
             anchor: [0.5, 0.5, 0.5, 0.5],
-            pivot: [0.5, 0.5],
-            layers: [backgroundLayer.id]
+            pivot: [0.5, 0.5]
         });
-        app.root.addChild(backplateEntity);
 
-        app.on("update", function (dt) {
+        console.log('world layer id : ' + worldLayer.id);
+        backplateEntity.element.layers = [worldLayer.id];
 
-            if (blueBox) {
-                blueBox.rotate(0, -10 * dt, 0);
-            }
 
-            blueBox.model.meshInstances[0].layer = 10;
-        });
+
     </script>
 </body>
 </html>
