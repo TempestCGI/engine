@@ -21,12 +21,108 @@
 
     <!-- The script -->
     <script>
-        var canvas = document.getElementById("application-canvas");
 
+        // function initSkyboxFromTexture(pc, skybox) {
+        //     var app = pc.app;
+        //     var device = app.graphicsDevice;
+        //
+        //     var cubemaps = [];
+        //
+        //     var reprojectToCubemap = (src, size) => {
+        //         // generate faces cubemap
+        //         var faces = new pc.Texture(device, {
+        //             name: 'cubemap',
+        //             cubemap: true,
+        //             width: size,
+        //             height: size,
+        //             type: pc.TEXTURETYPE_RGBM.toString(),
+        //             addressU: pc.ADDRESS_CLAMP_TO_EDGE,
+        //             addressV: pc.ADDRESS_CLAMP_TO_EDGE,
+        //             fixCubemapSeams: false,
+        //             mipmaps: false
+        //         });
+        //         pc.reprojectTexture(device, src, faces);
+        //
+        //         return faces;
+        //     };
+        //
+        //     if (skybox.cubemap) {
+        //         if (skybox.type === pc.TEXTURETYPE_DEFAULT || skybox.type === pc.TEXTURETYPE_RGBM) {
+        //             // cubemap format is acceptible, use it directly
+        //             cubemaps.push(skybox);
+        //         } else {
+        //             // cubemap must be rgbm or default to be used on the skybox
+        //             cubemaps.push(reprojectToCubemap(skybox, skybox.width));
+        //         }
+        //     } else {
+        //         skybox.projection = pc.TEXTUREPROJECTION_EQUIRECT;
+        //         // reproject equirect to cubemap for skybox
+        //         cubemaps.push(reprojectToCubemap(skybox, skybox.width / 4));
+        //     }
+        //
+        //     // generate prefiltered lighting data
+        //     var sizes = [128, 64, 32, 16, 8, 4];
+        //     var specPower = [undefined, 512, 128, 32, 8, 2];
+        //     for (let i = 0; i < sizes.length; ++i) {
+        //         var prefilter = new pc.Texture(device, {
+        //             cubemap: true,
+        //             name: 'skyboxPrefilter' + i,
+        //             width: sizes[i],
+        //             height: sizes[i],
+        //             // @ts-ignore TODO type property missing from pc.Texture
+        //             type: pc.TEXTURETYPE_RGBM,
+        //             addressU: pc.ADDRESS_CLAMP_TO_EDGE,
+        //             addressV: pc.ADDRESS_CLAMP_TO_EDGE,
+        //             fixCubemapSeams: true,
+        //             mipmaps: false
+        //         });
+        //         pc.reprojectTexture(device, cubemaps[1] || skybox, prefilter, specPower[i], 4096);
+        //         cubemaps.push(prefilter);
+        //     }
+        //
+        //     // assign the textures to the scene
+        //     app.scene.gammaCorrection = pc.GAMMA_SRGB;
+        //     pc.app.scene.toneMapping = pc.TONEMAP_ACES;
+        //     app.scene.skyboxMip = this.skyboxMip;               // Set the skybox to the 128x128 cubemap mipmap level
+        //     // this.setIntensity(300);
+        //     // this.setExposure(100);
+        //     app.scene.setSkybox(cubemaps);
+        //     app.renderNextFrame = true;                         // ensure we render again when the cubemap arrives
+        // }
+        //
+        // function setHdr(pc) {
+        //     var files = [{filename: `/app/configurator/assets/env/${envId}/hdr.do`, url: `/app/configurator/assets/env/${envId}/hdr.do`}];
+        //     var textureAsset = new pc.Asset('hdr', 'texture', {
+        //         url: files[0].url,
+        //         filename: files[0].filename
+        //     });
+        //     textureAsset.ready(() => {
+        //         var texture = textureAsset.resource;
+        //         if (texture.type === pc.TEXTURETYPE_DEFAULT && texture.format === pc.PIXELFORMAT_R8_G8_B8_A8) {
+        //             // assume RGBA data (pngs) are RGBM
+        //             texture.type = pc.TEXTURETYPE_RGBM;
+        //         }
+        //         this.initSkyboxFromTexture(texture);
+        //     });
+        //     pc.app.assets.add(textureAsset);
+        //     pc.app.assets.load(textureAsset);
+        // }
+
+
+
+
+
+        var canvas = document.getElementById("application-canvas");
         var canvasWidth = 1024;
         var canvasHeight = 768;
+
         // Create the app and start the update loop
-        var app = new pc.Application(canvas);
+        // Create the app and start the update loop
+        var app = new pc.Application(canvas, {
+            mouse: new pc.Mouse(document.body),
+            touch: new pc.TouchDevice(document.body)
+        });
+
         app.start();
 
         // Set the canvas to fill the window and automatically change resolution to be the same as the canvas size
@@ -49,52 +145,35 @@
             name: "Front Layer"
         });
 
+        var topLayer = new pc.Layer({
+            name: "Top Layer"
+        });
 
-        var backgroundLayer = new pc.Layer({name: 'Background Layer'})
+
+        var backplateLayer = new pc.Layer({ name: 'Backplate Layer'})
 
         // get the world layer index
         var worldLayer = app.scene.layers.getLayerByName("World");
-
         var worldLayerIdx = app.scene.layers.getTransparentIndex(worldLayer);
 
+        // insert the backplate layer after the world layer
+        app.scene.layers.insert(backplateLayer, worldLayerIdx + 1);
 
-        app.scene.layers.insert(backgroundLayer, worldLayerIdx + 1);
-        var backgroundLayerIdx = app.scene.layers.getTransparentIndex(backgroundLayer);
+        // insert the front layer after the backplate layer
+        app.scene.layers.insert(frontLayer, worldLayerIdx + 2);
 
-        // insert the new layer after the world layer
-        app.scene.layers.insert(frontLayer, backgroundLayer+ 1);
-        var frontLayerIdx = app.scene.layers.getTransparentIndex(frontLayer);
-
+        // insert the top layer after the front layer
+        app.scene.layers.insert(topLayer, worldLayerIdx + 99);
 
         // Create an Entity with a camera component
         // Make sure it renders both World and Front Layer
         var camera = new pc.Entity();
         camera.addComponent("camera", {
             clearColor: new pc.Color(0.4, 0.45, 0.5),
-            layers: [worldLayer.id, frontLayer.id, backgroundLayer.id]
+            layers: [topLayer, frontLayer, backplateLayer, worldLayer]
         });
-        camera.setPosition(1500, 1500, 0);
         camera.translate(0, 0, 24);
         app.root.addChild(camera);
-
-
-
-
-        // Create an Entity with a camera component
-        // Make sure it renders both World and Front Layer
-        // var camera2 = new pc.Entity();
-        // camera2.addComponent("camera2", {
-        //     // clearColor: new pc.Color(0.4, 0.45, 0.5),
-        //     layers: [worldLayer.id, frontLayer.id, backgroundLayer.id]
-        // });
-        // camera2.fov = 42;
-        // camera2.setPosition(1500, 1500, 0);
-        // camera2.translate(0, 0, 24);
-        // camera2.enabled = false;
-        // app.root.addChild(camera2);
-
-
-
 
         // Create an Entity with a point light component
         // Make sure it lights both World and Front Layer
@@ -103,7 +182,7 @@
             type: "point",
             color: new pc.Color(1, 1, 1),
             range: 100,
-            layers: [worldLayer.id, frontLayer.id]
+            layers: [worldLayer.id, frontLayer.id, topLayer.id]
         });
         light.translate(5, 0, 15);
         app.root.addChild(light);
@@ -121,17 +200,14 @@
         blue.depthTest = false;
         blue.update();
 
-
-
-
         // red box is rendered first in World layer
         var redBox = new pc.Entity();
         redBox.addComponent('model', {
-            type: 'box'
+            type: 'box',
+            layers: [frontLayer.id]
         });
         redBox.model.material = red;
         redBox.setLocalScale(5, 5, 5);
-        redBox.setPosition(1500, 1500, -20);
         app.root.addChild(redBox);
 
         // blue box is rendered in the Front Layer which is after World
@@ -141,35 +217,48 @@
         var blueBox = new pc.Entity();
         blueBox.addComponent('model', {
             type: 'box',
-            layers: [frontLayer.id] // try removing this line, the blue box will appear inside the red one
+            layers: [topLayer.id] // try removing this line, the blue box will appear inside the red one
         });
         blueBox.model.material = blue;
         blueBox.setLocalScale(2.5, 2.5, 2.5);
-        blueBox.setPosition(1500, 1500, -10);
         app.root.addChild(blueBox);
+
+        app.on("update", function (dt) {
+            if (redBox) {
+                redBox.rotate(0, 10 * dt, 0);
+            }
+            if (blueBox) {
+                blueBox.rotate(0, -10 * dt, 0);
+            }
+
+            blueBox.model.meshInstances[0].layer = 10;
+        });
+
 
 
         var backplateEntity = new pc.Entity();
         backplateEntity.name = 'backplateEntity';
-        backplateEntity.setPosition(1500, 1500, -100);
+        backplateEntity.setPosition(0, 0, -100);
         backplateEntity.enabled = true;
-        backplateEntity.setLocalScale(0.1, 0.1, 1);
+        backplateEntity.setLocalScale(0.1, 0.1, 0.1);
+        app.root.addChild(backplateEntity);
 
         var backplate = new pc.Asset('backplate', 'texture', {
-            // url: '../assets/cubemaps/GIPS_TEST_2.jpg'
-            url: '/app/configurator/plate/plateImage.do?plateId=30'
+            url: '../assets/textures/GIPS_TEST_2.jpg'
+            // url: '/app/configurator/plate/plateImage.do?plateId=30'
         });
-        app.assets.add(backplate);
 
+
+        app.assets.add(backplate);
         backplate.ready((backplateAsset) => {
             console.log(backplateAsset);
-
             var backplateAssetWidth = backplateAsset.resources[0].width;
             var backplateAssetHeight = backplateAsset.resources[0].height;
 
             var widthRatio = Math.abs(canvasWidth - backplateAssetWidth) / canvasWidth;
             var heightRatio = Math.abs(canvasHeight - backplateAssetHeight) / canvasHeight;
             console.log('backplate is ready', backplate);
+
 
             if (widthRatio < heightRatio) {
 
@@ -189,25 +278,58 @@
                     backplateEntity.element.height = (backplateAssetHeight * canvasWidth) / backplateAssetWidth;
                 }
             }
+
         });
 
         backplateEntity.addComponent('element', {
             type: 'image',
             textureAsset: backplate,
             anchor: [0.5, 0.5, 0.5, 0.5],
-            pivot: [0.5, 0.5],
-            layers: [backgroundLayer.id]
+            pivot: [0.5, 0.5]
         });
-        app.root.addChild(backplateEntity);
 
-        app.on("update", function (dt) {
+        // console.log('backplate layer id : ' + backplateLayer.id);
+        backplateEntity.element.layers = [backplateLayer.id];
 
-            if (blueBox) {
-                blueBox.rotate(0, -10 * dt, 0);
+
+        var assetManifest = [
+            {
+                type: "script",
+                url: "../../scripts/camera/orbit-camera.js"
             }
+        ];
 
-            blueBox.model.meshInstances[0].layer = 10;
+        // Load all assets and then run the example
+        var assetsToLoad = assetManifest.length;
+        assetManifest.forEach(function (entry) {
+            app.assets.loadFromUrl(entry.url, entry.type, function (err, asset) {
+                if (!err && asset) {
+                    assetsToLoad--;
+                    entry.asset = asset;
+                    if (assetsToLoad === 0) {
+                        // run();
+
+                        // Create a camera with an orbit camera script
+                        var orbitCamera = new pc.Entity();
+                        orbitCamera.addComponent("camera", {
+                            clearColor: new pc.Color(0.4, 0.45, 0.5),
+                            layers: [topLayer.id, frontLayer.id, backplateLayer.id, worldLayer.id]
+                        });
+                        orbitCamera.addComponent("script");
+                        orbitCamera.script.create("orbitCamera", {
+                            attributes: {
+                                inertiaFactor: 0.2 // Override default of 0 (no inertia)
+                            }
+                        });
+                        orbitCamera.script.create("orbitCameraInputMouse");
+                        orbitCamera.script.create("orbitCameraInputTouch");
+                        app.root.addChild(orbitCamera);
+                    }
+                }
+            });
         });
+
+
     </script>
 </body>
 </html>
