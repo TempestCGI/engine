@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <link rel="icon" type="image/png" href="../playcanvas-favicon.png" />
     <script src="../../build/playcanvas.js"></script>
+
+    <script src="../assets/scripts/asset-loader.js"></script>
     <style>
-        body { 
+        body {
             margin: 0;
             overflow-y: hidden;
         }
@@ -23,8 +25,13 @@
         var canvas = document.getElementById("application-canvas");
 
         // Create the app and start the update loop
-        var app = new pc.Application(canvas);
+        var app = new pc.Application(canvas, {
+            keyboard: new pc.Keyboard(document.body),
+            mouse: new pc.Mouse(document.body),
+            touch: new pc.TouchDevice(document.body)
+        });
 
+        app.start();
         // Set the canvas to fill the window and automatically change resolution to be the same as the canvas size
         app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
         app.setCanvasResolution(pc.RESOLUTION_AUTO);
@@ -35,41 +42,104 @@
 
         app.scene.ambientLight = new pc.Color(0.2, 0.2, 0.2);
 
-        // Load a model file and create a Entity with a model component
-        var url = "../assets/models/playcanvas-cube.glb";
-        app.assets.loadFromUrl(url, "container", function (err, asset) {
-            app.start();
+        var assetManifest = {
+            script: {
+                type: "script",
+                url: "../../scripts/camera/orbit-camera.js"
+            }
+        };
 
-            var entity = new pc.Entity();
+        loadManifestAssets(app, assetManifest);
+        // Load a model file and create a Entity with a model component
+        var url = "../assets/models/52910M7500.glb";
+        var aniUrl = "../assets/models/52910M7500_ANIM.glb";
+        var entity = new pc.Entity();
+
+
+        var cameraEntity = new pc.Entity(app);
+        cameraEntity.name = "Camera";
+        cameraEntity.addComponent("camera", {
+            clearColor: new pc.Color(0.1, 0.15, 0.2)
+        });
+        cameraEntity.translateLocal(-1.792, 0.976, 1.127);
+        cameraEntity.rotateLocal(-24.6, -58, 0);
+        cameraEntity.addComponent("script");
+        cameraEntity.script.create("orbitCamera", {
+            attributes: {
+                inertiaFactor: 0.2 // Override default of 0 (no inertia)
+            }
+        });
+        cameraEntity.script.create("orbitCameraInputMouse");
+        cameraEntity.script.create("orbitCameraInputTouch");
+
+        app.root.addChild(cameraEntity);
+
+
+        app.assets.loadFromUrl(url, "container", function (err, asset) {
+
+
+
             entity.addComponent("model", {
                 type: "asset",
                 asset: asset.resource.model,
                 castShadows: true
             });
-            app.root.addChild(entity);
 
-            // Create an Entity with a camera component
-            var camera = new pc.Entity();
-            camera.addComponent("camera", {
-                clearColor: new pc.Color(0.4, 0.45, 0.5)
-            });
-            camera.translate(0, 0, 3);
-            app.root.addChild(camera);
+            app.assets.loadFromUrlAndFilename(aniUrl,'52910M7500_ANIM.glb', "animation", function (err, animAsset) {
+                entity.addComponent("animation", {
+                    assets: [animAsset],
+                    activate: false,
+                });
 
-            // Create an entity with a directional light component
-            var light = new pc.Entity();
-            light.addComponent("light", {
-                type: "point"
-            });
-            light.setLocalPosition(1, 1, 5);
-            app.root.addChild(light);
+                app.root.addChild(entity);
+                console.log(entity);
+                entity.animation.speed = 0;
 
-            app.on("update", function (dt) {
-                if (entity) {
-                    entity.rotate(0, 10 * dt, 0);
-                }
+                entity.animation.play('52910M7500_ANIM.glb', 0);
+                entity.animation.currentTime = 1.0;
+                var light = new pc.Entity();
+                light.addComponent("light", {
+                    type: "point"
+                });
+                light.setLocalPosition(1, 1, 5);
+                app.root.addChild(light);
             });
         });
+
+        var time = 1.0;
+        var gap = time / 15;
+        var interval = setInterval(()=>{
+            var currTime = time + gap;
+            if (currTime > entity.animation.duration) {
+                currTime = entity.animation.duration;
+            }
+            entity.animation.currentTime = currTime;
+            time = currTime;
+            if (time === entity.animation.duration) {
+                clearInterval(interval);
+            }
+            console.log(time);
+        }, 300);
+        // app.on('update', function(dt){
+        //     entity.animation.currentTime = 1.0;
+        //     // if (app.keyboard.wasPressed(pc.KEY_RIGHT)) {
+        //     //     entity.animation.currentTime += 0.05;
+        //     //     console.log(entity.animation.currentTime);
+        //     // }
+        //     //
+        //     // if (app.keyboard.wasPressed(pc.KEY_LEFT)) {
+        //     //     entity.animation.currentTime -= 0.05;
+        //     //     console.log(entity.animation.currentTime);
+        //     // }
+        //     //
+        //     // if (app.keyboard.wasPressed(pc.KEY_SPACE)) {
+        //     //     for (var i = 0; i < 9; ++i) {
+        //     //         entity.animation.currentTime += 0.05;
+        //     //     }
+        //     //     console.log(entity.animation.currentTime);
+        //     // }
+        // })
+
     </script>
 </body>
 </html>
