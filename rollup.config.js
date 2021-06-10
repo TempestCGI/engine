@@ -232,6 +232,7 @@ const target_debug = {
     ]
 };
 
+        preprocessor({
 const target_profiler = {
     input: 'src/index.js',
     output: {
@@ -292,6 +293,8 @@ if (process.env.target) {
         case "es6":      targets = [target_release_es6,    target_extras]; break;
         case "debug":    targets = [target_debug,          target_extras]; break;
         case "profiler": targets = [target_profiler,       target_extras]; break;
+        case "tempest": targets = [tempest_release_es5,       tempest_target_extras]; break;
+        case "tempest": targets = [tempest_release_es5,       tempest_target_extras, tempest_target_debug]; break;
     }
 }
 
