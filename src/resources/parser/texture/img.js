@@ -38,7 +38,7 @@ class ImgParser {
 
     open(url, data, device) {
         const ext = path.getExtension(url).toLowerCase();
-        const format = (ext === ".jpg" || ext === ".jpeg") ? PIXELFORMAT_R8_G8_B8 : PIXELFORMAT_R8_G8_B8_A8;
+        const format = (ext === ".jpg" || ext === ".jpeg" || ext === '.do') ? PIXELFORMAT_R8_G8_B8 : PIXELFORMAT_R8_G8_B8_A8;
         const texture = new Texture(device, {
             name: url,
             // #if _PROFILER

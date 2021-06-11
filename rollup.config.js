@@ -125,6 +125,59 @@ const moduleOptions = {
     ]
 };
 
+
+const tempest_release_es5 = {
+    input: 'src/index.js',
+    output: {
+        banner: getBanner(''),
+        file: '../GIPS_Configurator/src/app/core/pc/playcanvas.js',
+        format: 'umd',
+        indent: '\t',
+        name: 'pc'
+    },
+    plugins: [
+        jscc({
+            values: {}
+        }),
+        shaderChunks(true),
+        replace({
+            values: {
+                __REVISION__: revision,
+                __CURRENT_SDK_VERSION__: version
+            },
+            preventAssignment: true
+        }),
+        babel(es5Options),
+        spacesToTabs()
+    ]
+};
+
+const tempest_release_es5min = {
+    input: 'src/index.js',
+    output: {
+        banner: getBanner(''),
+        file: '../GIPS_Configurator/src/app/core/pc/playcanvas.min.js',
+        format: 'umd',
+        indent: '\t',
+        name: 'pc'
+    },
+    plugins: [
+        jscc({
+            values: {}
+        }),
+        shaderChunks(true),
+        replace({
+            values: {
+                __REVISION__: revision,
+                __CURRENT_SDK_VERSION__: version
+            },
+            preventAssignment: true
+        }),
+        babel(es5Options),
+        terser()
+    ]
+};
+
 const target_release_es5 = {
     input: 'src/index.js',
     output: {
@@ -232,7 +285,6 @@ const target_debug = {
     ]
 };
 
-        preprocessor({
 const target_profiler = {
     input: 'src/index.js',
     output: {
@@ -276,13 +328,31 @@ const target_extras = {
     ]
 };
 
+const tempest_target_extras = {
+    input: 'extras/index.js',
+    output: {
+        banner: getBanner(''),
+        file: '../GIPS_Configurator/src/app/core/pc/playcanvas-extras.js',
+        format: 'umd',
+        indent: '\t',
+        name: 'pcx'
+    },
+    plugins: [
+        babel(es5Options),
+        spacesToTabs()
+    ]
+};
+
 let targets = [
     target_release_es5,
     target_release_es5min,
     target_release_es6,
     target_debug,
     target_profiler,
-    target_extras
+    target_extras,
+    tempest_release_es5min,
+    tempest_target_extras,
+    tempest_release_es5
 ];
 
 // Build all targets by default, unless a specific target is chosen
@@ -294,7 +364,7 @@ if (process.env.target) {
         case "debug":    targets = [target_debug,          target_extras]; break;
         case "profiler": targets = [target_profiler,       target_extras]; break;
         case "tempest": targets = [tempest_release_es5,       tempest_target_extras]; break;
-        case "tempest": targets = [tempest_release_es5,       tempest_target_extras, tempest_target_debug]; break;
+        case "tempest_debugLuis": targets = [tempest_release_es5,       tempest_target_extras, tempest_target_debug]; break;
     }
 }
 
