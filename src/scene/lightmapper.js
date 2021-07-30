@@ -76,6 +76,9 @@ class LightInfo {
         // original light properties
         this.store();
 
+        // don't use cascades
+        light.numCascades = 1;
+
         // bounds for non-directional light
         if (light.type !== LIGHTTYPE_DIRECTIONAL) {
 
@@ -94,12 +97,14 @@ class LightInfo {
         this.mask = this.light.mask;
         this.shadowUpdateMode = this.light.shadowUpdateMode;
         this.enabled = this.light.enabled;
+        this.numCascades = this.light.numCascades;
     }
 
     restore() {
         this.light.mask = this.mask;
         this.light.shadowUpdateMode = this.shadowUpdateMode;
         this.light.enabled = this.enabled;
+        this.light.numCascades = this.numCascades;
     }
 }
 
@@ -149,6 +154,9 @@ class Lightmapper {
         // release reference to the texture
         MeshInstance.decRefLightmap(this.blackTex);
         this.blackTex = null;
+
+        // destroy all lightmaps
+        MeshInstance.destroyLightmapCache();
 
         this.device = null;
         this.root = null;
@@ -770,7 +778,7 @@ class Lightmapper {
         }
 
         // per meshInstance culling for spot light only
-        // (point lights cull per face later, directional lights don't cull)
+        // (omni lights cull per face later, directional lights don't cull)
         if (light.type === LIGHTTYPE_SPOT) {
             let nodeVisible = false;
 

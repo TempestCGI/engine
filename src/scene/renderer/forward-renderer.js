@@ -34,7 +34,7 @@ import {
 import { Material } from '../materials/material.js';
 import { Mesh } from '../mesh.js';
 import { MeshInstance } from '../mesh-instance.js';
-import { LayerComposition } from '../layer-composition.js';
+import { LayerComposition } from '../composition/layer-composition.js';
 import { ShadowRenderer } from './shadow-renderer.js';
 import { Camera } from '../camera.js';
 import { GraphNode } from '../graph-node.js';
@@ -47,6 +47,10 @@ var viewMat = new Mat4();
 var viewMat3 = new Mat3();
 var viewProjMat = new Mat4();
 var projMat;
+
+var flipYMat = new Mat4().setScale(1, -1, 1);
+var flippedViewProjMat = new Mat4();
+var flippedSkyboxProjMat = new Mat4();
 
 var viewInvL = new Mat4();
 var viewInvR = new Mat4();
@@ -169,6 +173,11 @@ class ForwardRenderer {
         this.lightCookieIntId = [];
         this.lightCookieMatrixId = [];
         this.lightCookieOffsetId = [];
+
+        // shadow cascades
+        this.shadowMatrixPaletteId = [];
+        this.shadowCascadeDistancesId = [];
+        this.shadowCascadeCountId = [];
 
         this.depthMapId = scope.resolve('uDepthMap');
         this.screenSizeId = scope.resolve('uScreenSize');
@@ -429,7 +438,17 @@ class ForwardRenderer {
 
             // ViewProjection Matrix
             viewProjMat.mul2(projMat, viewMat);
-            this.viewProjId.setValue(viewProjMat.data);
+
+            if (target && target.flipY) {
+                flippedViewProjMat.mul2(flipYMat, viewProjMat);
+                flippedSkyboxProjMat.mul2(flipYMat, camera.getProjectionMatrixSkybox());
+
+                this.viewProjId.setValue(flippedViewProjMat.data);
+                this.projSkyboxId.setValue(flippedSkyboxProjMat.data);
+            } else {
+                this.viewProjId.setValue(viewProjMat.data);
+                this.projSkyboxId.setValue(camera.getProjectionMatrixSkybox().data);
+            }
 
             // View Position (world space)
             this.dispatchViewPos(camera._node.getPosition());
@@ -516,7 +535,7 @@ class ForwardRenderer {
     }
 
     _resolveLight(scope, i) {
-        var light = "light" + i;
+        const light = "light" + i;
         this.lightColorId[i] = scope.resolve(light + "_color");
         this.lightDir[i] = new Float32Array(3);
         this.lightDirId[i] = scope.resolve(light + "_direction");
@@ -536,6 +555,11 @@ class ForwardRenderer {
         this.lightCookieIntId[i] = scope.resolve(light + "_cookieIntensity");
         this.lightCookieMatrixId[i] = scope.resolve(light + "_cookieMatrix");
         this.lightCookieOffsetId[i] = scope.resolve(light + "_cookieOffset");
+
+        // shadow cascades
+        this.shadowMatrixPaletteId[i] = scope.resolve(light + "_shadowMatrixPalette[0]");
+        this.shadowCascadeDistancesId[i] = scope.resolve(light + "_shadowCascadeDistances[0]");
+        this.shadowCascadeCountId[i] = scope.resolve(light + "_shadowCascadeCount");
     }
 
     setLTCDirectionallLight(wtm, cnt, dir, campos, far) {
@@ -593,15 +617,18 @@ class ForwardRenderer {
             if (directional.castShadows) {
 
                 const lightRenderData = directional.getRenderData(camera, 0);
-                const farClip = lightRenderData.shadowCamera._farClip;
 
                 // make bias dependent on far plane because it's not constant for direct light
-                var bias;
+                // clip distance used is based on the nearest shadow cascade
+                const farClip = lightRenderData.shadowCamera._farClip;
+                let bias;
                 if (directional._isVsm) {
                     bias = -0.00001 * 20;
                 } else {
                     bias = (directional.shadowBias / farClip) * 100;
-                    if (!this.device.webgl2 && this.device.extStandardDerivatives) bias *= -100;
+                    if (!this.device.webgl2 && this.device.extStandardDerivatives) {
+                        bias *= -100;
+                    }
                 }
                 var normalBias = directional._isVsm ?
                     directional.vsmBias / (farClip / 7.0) :
@@ -609,9 +636,14 @@ class ForwardRenderer {
 
                 this.lightShadowMapId[cnt].setValue(lightRenderData.shadowBuffer);
                 this.lightShadowMatrixId[cnt].setValue(lightRenderData.shadowMatrix.data);
-                var params = directional._rendererParams;
+
+                this.shadowMatrixPaletteId[cnt].setValue(directional._shadowMatrixPalette);
+                this.shadowCascadeDistancesId[cnt].setValue(directional._shadowCascadeDistances);
+                this.shadowCascadeCountId[cnt].setValue(directional.numCascades);
+
+                var params = directional._shadowRenderParams;
                 params.length = 3;
-                params[0] = directional._shadowResolution;
+                params[0] = directional._shadowResolution;  // Note: this needs to change for non-square shadow maps (2 cascades). Currently square is used
                 params[1] = normalBias;
                 params[2] = bias;
                 this.lightShadowParamsId[cnt].setValue(params);
@@ -661,7 +693,7 @@ class ForwardRenderer {
             const lightRenderData = omni.getRenderData(null, 0);
             this.lightShadowMapId[cnt].setValue(lightRenderData.shadowBuffer);
 
-            var params = omni._rendererParams;
+            var params = omni._shadowRenderParams;
             params.length = 4;
             params[0] = omni._shadowResolution;
             params[1] = omni._normalOffsetBias;
@@ -724,7 +756,7 @@ class ForwardRenderer {
             this.lightShadowMapId[cnt].setValue(lightRenderData.shadowBuffer);
 
             this.lightShadowMatrixId[cnt].setValue(lightRenderData.shadowMatrix.data);
-            var params = spot._rendererParams;
+            var params = spot._shadowRenderParams;
             params.length = 4;
             params[0] = spot._shadowResolution;
             params[1] = normalBias;
@@ -896,6 +928,14 @@ class ForwardRenderer {
                     light.getBoundingSphere(tempSphere);
                     if (camera.frustum.containsSphere(tempSphere)) {
                         light.visibleThisFrame = true;
+                    } else {
+                        // if shadow casting light does not have shadow map allocated, mark it visible to allocate shadow map
+                        // Note: This won't be needed when clustered shadows are used, but at the moment even culled out lights
+                        // are used for rendering, and need shadow map to be allocated
+                        // TODO: delete this code when clusteredLightingEnabled is being removed and is on by default.
+                        if (light.castShadows && !light.shadowMap) {
+                            light.visibleThisFrame = true;
+                        }
                     }
                 }
             }
@@ -997,6 +1037,11 @@ class ForwardRenderer {
 
     // returns number of extra draw calls to skip - used to skip auto instanced meshes draw calls. by default return 0 to not skip any additional draw calls
     drawInstance(device, meshInstance, mesh, style, normal) {
+
+        // #if _DEBUG
+        device.pushMarker(meshInstance.node.name);
+        // #endif
+
         instancingData = meshInstance.instancingData;
         if (instancingData) {
             if (instancingData.count > 0) {
@@ -1025,11 +1070,21 @@ class ForwardRenderer {
 
             device.draw(mesh.primitive[style]);
         }
+
+        // #if _DEBUG
+        device.popMarker();
+        // #endif
+
         return 0;
     }
 
     // used for stereo
     drawInstance2(device, meshInstance, mesh, style) {
+
+        // #if _DEBUG
+        device.pushMarker(meshInstance.node.name);
+        // #endif
+
         instancingData = meshInstance.instancingData;
         if (instancingData) {
             if (instancingData.count > 0) {
@@ -1045,6 +1100,11 @@ class ForwardRenderer {
             // matrices are already set
             device.draw(mesh.primitive[style], undefined, true);
         }
+
+        // #if _DEBUG
+        device.popMarker();
+        // #endif
+
         return 0;
     }
 
@@ -1058,7 +1118,7 @@ class ForwardRenderer {
         // #endif
 
         for (let i = 0; i < lights.length; i++) {
-            this._shadowRenderer.renderShadow(lights[i], camera);
+            this._shadowRenderer.render(lights[i], camera);
         }
 
         if (device.webgl2) {
@@ -1189,7 +1249,7 @@ class ForwardRenderer {
         this.viewPosId.setValue(vp);
     }
 
-    renderForward(camera, drawCalls, drawCallsCount, sortedLights, pass, cullingMask, drawCallback, layer) {
+    renderForward(camera, drawCalls, drawCallsCount, sortedLights, pass, cullingMask, drawCallback, layer, flipFaces) {
         var device = this.device;
         var scene = this.scene;
         var vrDisplay = camera.vrDisplay;
@@ -1317,7 +1377,7 @@ class ForwardRenderer {
                     }
                 }
 
-                this.setCullMode(camera._cullFaces, camera._flipFaces, drawCall);
+                this.setCullMode(camera._cullFaces, flipFaces, drawCall);
 
                 stencilFront = drawCall.stencilFront || material.stencilFront;
                 stencilBack = drawCall.stencilBack || material.stencilBack;
@@ -2237,6 +2297,10 @@ class ForwardRenderer {
                     renderAction.lightClusters.activate();
                 }
 
+                // enable flip faces if either the camera has _flipFaces enabled or the render target
+                // has flipY enabled
+                const flipFaces = !!(camera.camera._flipFaces ^ renderAction?.renderTarget?.flipY);
+
                 const draws = this._forwardDrawCalls;
                 this.renderForward(camera.camera,
                                    visible.list,
@@ -2245,7 +2309,8 @@ class ForwardRenderer {
                                    layer.shaderPass,
                                    layer.cullingMask,
                                    layer.onDrawCall,
-                                   layer);
+                                   layer,
+                                   flipFaces);
                 layer._forwardDrawCalls += this._forwardDrawCalls - draws;
 
                 // Revert temp frame stuff

@@ -2,9 +2,11 @@ import { path } from '../../core/path.js';
 
 import { http } from '../../net/http.js';
 
+import { math } from '../../math/math.js';
 import { Mat4 } from '../../math/mat4.js';
 import { Vec2 } from '../../math/vec2.js';
 import { Vec3 } from '../../math/vec3.js';
+import { Color } from '../../math/color.js';
 
 import { BoundingBox } from '../../shape/bounding-box.js';
 
@@ -25,20 +27,18 @@ import { VertexBuffer } from '../../graphics/vertex-buffer.js';
 import { VertexFormat } from '../../graphics/vertex-format.js';
 
 import {
-    BLEND_NONE, BLEND_NORMAL
+    BLEND_NONE, BLEND_NORMAL, LIGHTFALLOFF_INVERSESQUARED
 } from '../../scene/constants.js';
 import { calculateNormals } from '../../scene/procedural.js';
 import { GraphNode } from '../../scene/graph-node.js';
 import { Mesh } from '../../scene/mesh.js';
-import { MeshInstance } from '../../scene/mesh-instance.js';
-import { Model } from '../../scene/model.js';
 import { Morph } from '../../scene/morph.js';
-import { MorphInstance } from '../../scene/morph-instance.js';
 import { MorphTarget } from '../../scene/morph-target.js';
 import { Skin } from '../../scene/skin.js';
-import { SkinInstance } from '../../scene/skin-instance.js';
 import { StandardMaterial } from '../../scene/materials/standard-material.js';
 import { Render } from '../../scene/render.js';
+
+import { Entity } from '../../framework/entity.js';
 
 import { AnimCurve } from '../../anim/evaluator/anim-curve.js';
 import { AnimData } from '../../anim/evaluator/anim-data.js';
@@ -48,6 +48,30 @@ import { AnimBinder } from '../../anim/binder/anim-binder.js';
 import { INTERPOLATION_CUBIC, INTERPOLATION_LINEAR, INTERPOLATION_STEP } from '../../anim/constants.js';
 
 import { Asset } from '../../asset/asset.js';
+
+// resources loaded from GLB file that the parser returns
+class GlbResources {
+    constructor(gltf) {
+        this.gltf = gltf;
+        this.nodes = null;
+        this.scenes = null;
+        this.animations = null;
+        this.textures = null;
+        this.materials = null;
+        this.renders = null;
+        this.skins = null;
+        this.lights = null;
+    }
+
+    destroy() {
+        // render needs to dec ref meshes
+        if (this.renders) {
+            this.renders.forEach((render) => {
+                render.meshes = null;
+            });
+        }
+    }
+}
 
 const isDataURI = function (uri) {
     return /^data:.*,.*$/i.test(uri);
@@ -173,7 +197,7 @@ const getAccessorData = function (gltfAccessor, bufferViews) {
     } else {
         const bufferView = bufferViews[gltfAccessor.bufferView];
         result = new dataType(bufferView.buffer,
-                              bufferView.byteOffset + (gltfAccessor.hasOwnProperty('byteOffset') ? gltfAccessor.byteOffset : 0),
+                              bufferView.byteOffset + (gltfAccessor.byteOffset || 0),
                               gltfAccessor.count * numComponents);
     }
 
@@ -419,8 +443,10 @@ const createVertexBufferInternal = function (device, sourceDesc, disableFlipV) {
             targetStride = target.stride / 4;
 
             source = sourceDesc[target.name];
-            sourceArray = new Uint32Array(source.buffer, source.offset, source.count * source.stride / 4);
             sourceStride = source.stride / 4;
+            // ensure we don't go beyond the end of the arraybuffer when dealing with
+            // interlaced vertex formats
+            sourceArray = new Uint32Array(source.buffer, source.offset, (source.count - 1) * sourceStride + source.size / 4);
 
             let src = 0;
             let dst = target.offset / 4;
@@ -765,6 +791,8 @@ const createMesh = function (device, gltfMesh, accessors, bufferViews, callback,
                 mesh.primitive[0].count = vertexBuffer.numVertices;
             }
 
+            // TODO: Refactor, we should not store temporary data on the mesh.
+            // The container should store some mapping table instead.
             mesh.materialIndex = primitive.material;
 
             let accessor = accessors[primitive.attributes.POSITION];
@@ -947,7 +975,7 @@ const createMaterial = function (gltfMaterial, textures, disableFlipV) {
         // texture coordinate V at load time.
         for (map = 0; map < maps.length; ++map) {
             material[maps[map] + 'MapTiling'] = new Vec2(scale[0], scale[1]);
-            material[maps[map] + 'MapOffset'] = new Vec2(offset[0], disableFlipV ? offset[1] : 1.0 - scale[1] - offset[1]);
+            material[maps[map] + 'MapOffset'] = new Vec2(offset[0], disableFlipV ? 1.0 - scale[1] - offset[1] : offset[1]);
         }
     };
 
@@ -1370,6 +1398,38 @@ const createNode = function (gltfNode, nodeIndex) {
     return entity;
 };
 
+// creates light component, adds it to the node and returns the created light component
+const createLight = function (gltfLight, node) {
+
+    const lightProps = {
+        type: gltfLight.type === "point" ? "omni" : gltfLight.type,
+        color: gltfLight.hasOwnProperty('color') ? new Color(gltfLight.color) : Color.WHITE,
+        range: gltfLight.hasOwnProperty('range') ? gltfLight.range : Number.MAX_VALUE,
+        falloffMode: LIGHTFALLOFF_INVERSESQUARED,
+
+        // TODO: (engine issue #3252) Set intensity to match glTF specification, which uses physically based values:
+        // - Omni and spot lights use luminous intensity in candela (lm/sr)
+        // - Directional lights use illuminance in lux (lm/m2).
+        // Current implementation: clapms specified intensity to 0..2 range
+        intensity: gltfLight.hasOwnProperty('intensity') ? math.clamp(gltfLight.intensity, 0, 2) : 1
+    };
+
+    if (gltfLight.hasOwnProperty('spot')) {
+        lightProps.innerConeAngle = gltfLight.spot.hasOwnProperty('innerConeAngle') ? gltfLight.spot.innerConeAngle * math.RAD_TO_DEG : 0;
+        lightProps.outerConeAngle = gltfLight.spot.hasOwnProperty('outerConeAngle') ? gltfLight.spot.outerConeAngle * math.RAD_TO_DEG : Math.PI / 4;
+    }
+
+    // Rotate to match light orientation in glTF specification
+    // Note that this adds a new entity node into the hierarchy that does not exist in the gltf hierarchy
+    var lightNode = new Entity(node.name);
+    lightNode.rotateLocal(90, 0, 0);
+
+    // add component
+    lightNode.addComponent("light", lightProps);
+
+    return lightNode;
+};
+
 const createSkins = function (device, gltf, nodes, bufferViews) {
     if (!gltf.hasOwnProperty('skins') || gltf.skins.length === 0) {
         return [];
@@ -1503,6 +1563,63 @@ const createScenes = function (gltf, nodes) {
     return scenes;
 };
 
+const createLights = function (gltf, nodes, options) {
+
+    let lights = null;
+
+    if (gltf.hasOwnProperty('nodes') && gltf.hasOwnProperty('extensions') &&
+        gltf.extensions.hasOwnProperty('KHR_lights_punctual') && gltf.extensions.KHR_lights_punctual.hasOwnProperty('lights')) {
+
+        const gltfLights = gltf.extensions.KHR_lights_punctual.lights;
+        if (gltfLights.length) {
+
+            const preprocess = options && options.light && options.light.preprocess;
+            const process = options && options.light && options.light.process || createLight;
+            const postprocess = options && options.light && options.light.postprocess;
+
+            // handle nodes with lights
+            gltf.nodes.forEach(function (gltfNode, nodeIndex) {
+                if (gltfNode.hasOwnProperty('extensions') &&
+                    gltfNode.extensions.hasOwnProperty('KHR_lights_punctual') &&
+                    gltfNode.extensions.KHR_lights_punctual.hasOwnProperty('light')) {
+
+                    const lightIndex = gltfNode.extensions.KHR_lights_punctual.light;
+                    const gltfLight = gltfLights[lightIndex];
+                    if (gltfLight) {
+                        if (preprocess) {
+                            preprocess(gltfLight);
+                        }
+                        const light = process(gltfLight, nodes[nodeIndex]);
+                        if (postprocess) {
+                            postprocess(gltfLight, light);
+                        }
+
+                        // add the light to node->light map
+                        if (light) {
+                            if (!lights) lights = new Map();
+                            lights.set(gltfNode, light);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    return lights;
+};
+
+// link skins to the meshes
+const linkSkins = function (gltf, renders, skins) {
+    gltf.nodes.forEach((gltfNode) => {
+        if (gltfNode.hasOwnProperty('mesh') && gltfNode.hasOwnProperty('skin')) {
+            const meshGroup = renders[gltfNode.mesh].meshes;
+            meshGroup.forEach((mesh) => {
+                mesh.skin = skins[gltfNode.skin];
+            });
+        }
+    });
+};
+
 // create engine resources from the downloaded GLB data
 const createResources = function (device, gltf, bufferViews, textureAssets, options, callback) {
     const preprocess = options && options.global && options.global.preprocess;
@@ -1513,12 +1630,13 @@ const createResources = function (device, gltf, bufferViews, textureAssets, opti
     }
 
     // The original version of FACT generated incorrectly flipped V texture
-    // coordinates. We must compensate by -not- flipping V in this case. Once
+    // coordinates. We must compensate by flipping V in this case. Once
     // all models have been re-exported we can remove this flag.
-    const disableFlipV = gltf.asset && gltf.asset.generator === 'PlayCanvas';
+    const disableFlipV = !(gltf.asset && gltf.asset.generator === 'PlayCanvas');
 
     const nodes = createNodes(gltf, options);
     const scenes = createScenes(gltf, nodes);
+    const lights = createLights(gltf, nodes, options);
     const animations = createAnimations(gltf, nodes, bufferViews, options);
     const materials = createMaterials(gltf, textureAssets.map(function (textureAsset) {
         return textureAsset.resource;
@@ -1533,16 +1651,18 @@ const createResources = function (device, gltf, bufferViews, textureAssets, opti
         renders[i].meshes = meshes[i];
     }
 
-    const result = {
-        'gltf': gltf,
-        'nodes': nodes,
-        'scenes': scenes,
-        'animations': animations,
-        'textures': textureAssets,
-        'materials': materials,
-        'renders': renders,
-        'skins': skins
-    };
+    // link skins to meshes
+    linkSkins(gltf, renders, skins);
+
+    const result = new GlbResources(gltf);
+    result.nodes = nodes;
+    result.scenes = scenes;
+    result.animations = animations;
+    result.textures = textureAssets;
+    result.materials = materials;
+    result.renders = renders;
+    result.skins = skins;
+    result.lights = lights;
 
     if (postprocess) {
         postprocess(gltf, result);
@@ -1691,7 +1811,7 @@ const loadTexturesAsync = function (gltf, bufferViews, urlBase, registry, option
                     applySampler(textureAsset.resource, (gltf.samplers || [])[gltf.textures[textureIndex].sampler]);
                     result[textureIndex] = textureAsset;
                     if (postprocess) {
-                        postprocess(gltf.textures[index], textureAsset);
+                        postprocess(gltf.textures[textureIndex], textureAsset);
                     }
                 });
             });
@@ -1956,7 +2076,7 @@ const parseBufferViewsAsync = function (gltf, buffers, options, callback) {
             } else {
                 const buffer = buffers[gltfBufferView.buffer];
                 const typedArray = new Uint8Array(buffer.buffer,
-                                                  buffer.byteOffset + (gltfBufferView.hasOwnProperty('byteOffset') ? gltfBufferView.byteOffset : 0),
+                                                  buffer.byteOffset + (gltfBufferView.byteOffset || 0),
                                                   gltfBufferView.byteLength);
                 onLoad(i, typedArray);
             }
@@ -2048,80 +2168,6 @@ class GlbParser {
         });
 
         return result;
-    }
-
-    // create a pc.Model from the parsed GLB data structures
-    static createModel(glb, defaultMaterial) {
-
-        const createMeshInstance = function (model, mesh, skins, skinInstances, materials, node, gltfNode) {
-            const material = (mesh.materialIndex === undefined) ? defaultMaterial : materials[mesh.materialIndex];
-            const meshInstance = new MeshInstance(mesh, material, node);
-
-            if (mesh.morph) {
-                const morphInstance = new MorphInstance(mesh.morph);
-                if (mesh.weights) {
-                    for (let wi = 0; wi < mesh.weights.length; wi++) {
-                        morphInstance.setWeight(wi, mesh.weights[wi]);
-                    }
-                }
-
-                meshInstance.morphInstance = morphInstance;
-                model.morphInstances.push(morphInstance);
-            }
-
-            if (gltfNode.hasOwnProperty('skin')) {
-                const skinIndex = gltfNode.skin;
-                const skin = skins[skinIndex];
-                mesh.skin = skin;
-
-                const skinInstance = skinInstances[skinIndex];
-                meshInstance.skinInstance = skinInstance;
-                model.skinInstances.push(skinInstance);
-            }
-
-            model.meshInstances.push(meshInstance);
-        };
-
-        const model = new Model();
-
-        // create skinInstance for each skin
-        const skinInstances = [];
-        for (const skin of glb.skins) {
-            const skinInstance = new SkinInstance(skin);
-            skinInstance.bones = skin.bones;
-            skinInstances.push(skinInstance);
-        }
-
-        // node hierarchy for the model
-        if (glb.scenes.length === 1) {
-            // use scene if only one
-            model.graph = glb.scenes[0];
-        } else {
-            // create group node for all scenes
-            model.graph = new GraphNode('SceneGroup');
-            for (const scene of glb.scenes) {
-                model.graph.addChild(scene);
-            }
-        }
-
-        // create mesh instance for meshes on nodes that are part of hierarchy
-        for (let i = 0; i < glb.nodes.length; i++) {
-            const node = glb.nodes[i];
-            if (node.root === model.graph) {
-                const gltfNode = glb.gltf.nodes[i];
-                if (gltfNode.hasOwnProperty('mesh')) {
-                    const meshGroup = glb.renders[gltfNode.mesh].meshes;
-                    for (var mi = 0; mi < meshGroup.length; mi++) {
-                        const mesh = meshGroup[mi];
-                        if (mesh) {
-                            createMeshInstance(model, mesh, glb.skins, skinInstances, glb.materials, node, gltfNode);
-                        }
-                    }
-                }
-            }
-        }
-
-        return model;
     }
 }
 
