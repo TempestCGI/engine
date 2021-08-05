@@ -33,8 +33,8 @@ class AnimationHandler {
             retry: this.maxRetries > 0,
             maxRetries: this.maxRetries
         };
-
-        if (url.load.startsWith('blob:') || url.load.startsWith('data:')) {
+        
+        if (url.load.split('?')[0].endsWith('glb.do') || url.load.startsWith('blob:') || url.load.startsWith('data:')) {
             if (path.getExtension(url.original).toLowerCase() === '.glb') {
                 options.responseType = Http.ResponseType.ARRAY_BUFFER;
             } else {
@@ -68,7 +68,7 @@ class AnimationHandler {
         const animData = data.animation;
 
         const anim = new Animation();
-        anim.name = animData.name;
+        anim.name = animData.name;        
         anim.duration = animData.duration;
 
         for (let i = 0; i < animData.nodes.length; i++) {

@@ -1956,6 +1956,7 @@ const parseGltf = function (gltfChunk, callback) {
     callback(null, gltf);
 };
 
+
 // parse glb data, returns the gltf and binary chunk
 const parseGlb = function (glbData, callback) {
     const data = new DataView(glbData);
