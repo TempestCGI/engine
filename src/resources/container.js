@@ -370,6 +370,7 @@ class ContainerHandler {
     }
 
     load(url, callback, asset) {
+    
         if (typeof url === 'string') {
             url = {
                 load: url,
@@ -413,7 +414,7 @@ class ContainerHandler {
                     return;
 
                 if (err) {
-                    callback("Error loading model: " + url.original + " [" + err + "]");
+                    callback("Error loading model: " + url.original + "\n[" + err + "]");
                 } else {
                     parseData(response);
                 }

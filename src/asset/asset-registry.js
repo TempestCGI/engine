@@ -431,6 +431,9 @@ class AssetRegistry extends EventHandler {
      * });
      */
     loadFromUrlAndFilename(url, filename, type, callback) {
+        // if(type === 'container') {
+        //     console.log('Load From Url And File Name : \n',url, filename, type, callback);
+        // }
         var self = this;
 
         var name = path.getBasename(filename || url);
@@ -446,6 +449,7 @@ class AssetRegistry extends EventHandler {
             self.add(asset);
         } else if (asset.loaded) {
             // asset is already loaded
+            // @ts-ignore
             callback(asset.loadFromUrlError || null, asset);
             return;
         }
@@ -453,10 +457,13 @@ class AssetRegistry extends EventHandler {
         var startLoad = function (asset) {
             asset.once("load", function (loadedAsset) {
                 if (type === 'material') {
+                    // @ts-ignore
                     self._loadTextures(loadedAsset, function (err, textures) {
+                        // @ts-ignore
                         callback(err, loadedAsset);
                     });
                 } else {
+                    // @ts-ignore
                     callback(null, loadedAsset);
                 }
             });
@@ -465,12 +472,14 @@ class AssetRegistry extends EventHandler {
                 if (err) {
                     this.loadFromUrlError = err;
                 }
+                // @ts-ignore
                 callback(err, asset);
             });
             self.load(asset);
         };
 
         if (asset.resource) {
+            // @ts-ignore
             callback(null, asset);
         } else if (type === 'model') {
             self._loadModel(asset, startLoad);
@@ -481,11 +490,12 @@ class AssetRegistry extends EventHandler {
 
     // private method used for engine-only loading of model data
     _loadModel(modelAsset, continuation) {
+        console.log('came here 1');
         var self = this;
 
         var url = modelAsset.getFileUrl();
         var ext = path.getExtension(url);
-
+        console.log('Url and Extension : ',url, ext);
         if (ext === '.json' || ext === '.glb') {
             var dir = path.getDirectory(url);
             var basename = path.getBasename(url);
@@ -497,6 +507,7 @@ class AssetRegistry extends EventHandler {
                     modelAsset.data = { mapping: [] };
                     continuation(modelAsset);
                 } else {
+                    // @ts-ignore
                     self._loadMaterials(modelAsset, data, function (e, materials) {
                         modelAsset.data = data;
                         continuation(modelAsset);
@@ -515,8 +526,10 @@ class AssetRegistry extends EventHandler {
         var materials = [];
         var count = 0;
 
+        // @ts-ignore
         var onMaterialLoaded = function (err, materialAsset) {
             // load dependent textures
+            // @ts-ignore
             self._loadTextures(materialAsset, function (err, textures) {
                 materials.push(materialAsset);
                 if (materials.length === count) {
@@ -529,6 +542,7 @@ class AssetRegistry extends EventHandler {
             var path = mapping.mapping[i].path;
             if (path) {
                 count++;
+                console.log(path);
                 self.loadFromUrl(modelAsset.getAbsoluteUrl(path), "material", onMaterialLoaded);
             }
         }
@@ -555,6 +569,12 @@ class AssetRegistry extends EventHandler {
         }
 
         var onTextureLoaded = function (err, texture) {
+            // var filename = texture.file.url.substring(texture.file.url.indexOf('.')+2);
+            // console.log(filename);
+            // texture.name = filename;
+            // texture.file.filename = filename;
+            
+            // console.log('Texture : ', texture, 'Material Asset : ', materialAsset);
             if (err) console.error(err);
             textures.push(texture);
             if (textures.length === count) {
@@ -567,7 +587,34 @@ class AssetRegistry extends EventHandler {
             var path = data[texParams[i]];
             if (path && typeof(path) === 'string') {
                 count++;
+              
+                // if(window['systemVersion'] !== undefined && window['systemVersion'] !== null) {
+                //     var splittedPath = path.split('?');
+                //     if(splittedPath.length > 1) {
+                //         path = splittedPath[0] + '?systemVersion='+window['systemVersion']+'&'+splittedPath[1];
+                //     } else {
+                //         path = splittedPath[0] + '?systemVersion='+window['systemVersion'];
+                //     }
+                // }
+                // console.log(window['systemVersion'], "Texture Path : " + materialAsset.getAbsoluteUrl(path));
+                var params = path.split('?')[1].split('&');
+                var mapName = null;
+                for(var param of params) {
+                    if(param.split('=')[0] === 'mapName') {
+                        mapName = param.split('=')[1];
+                    }
+                }
+                
                 self.loadFromUrl(materialAsset.getAbsoluteUrl(path), "texture", onTextureLoaded);
+                // var existing = this.find(mapName, 'texture');
+                // if( existing === null) {
+                //     self.loadFromUrlAndFilename(materialAsset.getAbsoluteUrl(path), mapName, "texture", onTextureLoaded);
+                // } else {
+                //     console.log(existing);
+                //     onTextureLoaded(null, existing);
+                // }
+
+                
             }
         }
 
@@ -656,6 +703,7 @@ class AssetRegistry extends EventHandler {
     filter(callback) {
         var items = [];
         for (var i = 0, len = this._assets.length; i < len; i++) {
+            // @ts-ignore
             if (callback(this._assets[i]))
                 items.push(this._assets[i]);
         }

@@ -416,7 +416,7 @@ class Http {
         xhr.open(method, url, options.async);
         xhr.withCredentials = options.withCredentials !== undefined ? options.withCredentials : false;
         xhr.responseType = options.responseType || this._guessResponseType(url);
-
+        
         // Set the http headers
         for (var header in options.headers) {
             if (options.headers.hasOwnProperty(header)) {

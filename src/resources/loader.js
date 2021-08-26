@@ -83,6 +83,7 @@ class ResourceLoader {
      * });
      */
     load(url, type, callback, asset) {
+        
         const handler = this._handlers[type];
         if (!handler) {
             const err = "No handler for asset type: " + type;
