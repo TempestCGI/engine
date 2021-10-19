@@ -2018,7 +2018,7 @@ const parseGlb = function (glbData, callback) {
 
 // parse the chunk of data, which can be glb or gltf
 const parseChunk = function (filename, data, callback) {
-    if (filename && (filename.toLowerCase().endsWith('.glb') || filename.toLowerCase().endsWith('glb.do')) ) {
+    if (filename && (filename.toLowerCase().endsWith('.glb') || filename.toLowerCase().endsWith('glb.do') || filename.toLowerCase().endsWith('gltf.do')) ) {
         parseGlb(data, callback);
     } else {
         callback(null, {

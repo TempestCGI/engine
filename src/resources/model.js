@@ -25,7 +25,7 @@ class ModelHandler {
         });
         this.addParser(new GlbModelParser(this._device), function (url, data) {
             console.log('Check url and extension : ',url, path.getExtension(url));
-            return (path.getExtension(url) === '.glb' || path.getBasename(url) === 'glb.do');
+            return (path.getExtension(url) === '.glb' || path.getBasename(url) === 'glb.do' ||  path.getBasename(url) === 'gltf.do');
         });
     }
 
@@ -44,6 +44,7 @@ class ModelHandler {
         };
 
         if (url.load.startsWith('blob:') || url.load.startsWith('data:')) {
+            console.log(path.getExtension(url.original).toLowerCase());
             if (path.getExtension(url.original).toLowerCase() === '.glb') {
                 options.responseType = Http.ResponseType.ARRAY_BUFFER;
             } else {
