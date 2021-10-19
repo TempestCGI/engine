@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
 
 // @ts-ignore: library file import
-import { Container, Button, Label, TextAreaInput } from '@playcanvas/pcui/pcui-react';
+import Container from '@playcanvas/pcui/Container/component';
+// @ts-ignore: library file import
+import Button from '@playcanvas/pcui/Button/component';
+// @ts-ignore: library file import
+import Label from '@playcanvas/pcui/Label/component';
+// @ts-ignore: library file import
+import TextAreaInput from '@playcanvas/pcui/TextAreaInput/component';
 
 interface MenuProps {
     lintErrors: boolean,
     hasEditedFiles: boolean,
+    useTypescript: boolean,
+    languageButtonRef: any,
     playButtonRef: any,
     setShowMiniStats: (value: boolean) => void
 }
@@ -35,7 +43,7 @@ const Menu = (props: MenuProps) => {
             };
             document.querySelector('iframe').contentDocument.addEventListener('mousemove', clickFullscreenListener);
         }
-    }
+    };
 
     useEffect(() => {
         const escapeKeyEvent = (e: any) => {
@@ -45,7 +53,7 @@ const Menu = (props: MenuProps) => {
         };
         document.querySelector('iframe').contentDocument.addEventListener('keydown', escapeKeyEvent);
         document.addEventListener('keydown', escapeKeyEvent);
-    })
+    });
 
     return <Container id='menu'>
         <Container id='menu-buttons'>
@@ -66,6 +74,7 @@ const Menu = (props: MenuProps) => {
                 document.getElementById('showMiniStatsButton').classList.toggle('selected');
                 props.setShowMiniStats(document.getElementById('showMiniStatsButton').classList.contains('selected'));
             }}/>
+            <Button id='language-button' text={props.useTypescript ? 'JS' : 'TS'} ref={props.languageButtonRef} />
             <Button id='play-button' enabled={!props.lintErrors && props.hasEditedFiles} icon='E131' text='' ref={props.playButtonRef} />
         </Container>
         { showEmbedContainer && <Container id='menu-embed-container'>
@@ -78,9 +87,9 @@ const Menu = (props: MenuProps) => {
                 const embedCopyButton = document.getElementById('copy-embed-button').ui;
                 navigator.clipboard.writeText(embedTextArea.value);
                 embedTextArea.flash();
-                embedCopyButton.text = 'Copied!'
+                embedCopyButton.text = 'Copied!';
                 setTimeout(() => {
-                    embedCopyButton.text = 'Copy to clipboard'
+                    embedCopyButton.text = 'Copy to clipboard';
                 }, 1000);
             }}/>
         </Container> }

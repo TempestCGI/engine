@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import ControlPanel from './control-panel';
 // @ts-ignore: library file import
-import { Container, Spinner } from '@playcanvas/pcui/pcui-react';
+import Container from '@playcanvas/pcui/Container/component';
+// @ts-ignore: library file import
+import Spinner from '@playcanvas/pcui/Spinner/component';
 import * as playcanvas from 'playcanvas/build/playcanvas.js';
 // @ts-ignore: library file import
 import * as playcanvasDebug from 'playcanvas/build/playcanvas.dbg.js';
@@ -12,7 +14,7 @@ import * as pcx from 'playcanvas/build/playcanvas-extras.js';
 // @ts-ignore: library file import
 import * as Babel from '@babel/standalone';
 // @ts-ignore: library file import
-import { Observer } from '@playcanvas/pcui/pcui-binding';
+import { Observer } from '@playcanvas/observer';
 import * as javascriptErrorOverlay from '../../lib/javascriptErrorOverlay';
 import { File } from './helpers/types';
 import { Loader } from './helpers/loader';
@@ -30,7 +32,8 @@ interface ExampleIframeProps {
     assets: any,
     files: Array<File>,
     engine: string,
-    debugExample?: any
+    debugExample?: any,
+    useTypescript: boolean
 }
 
 const ExampleIframe = (props: ExampleIframeProps) => {
@@ -220,10 +223,10 @@ const ExampleIframe = (props: ExampleIframeProps) => {
                     wasmUrl: 'static/lib/basis/basis.wasm.wasm',
                     fallbackUrl: 'static/lib/basis/basis.js'
                 });
-                build(document.getElementById('application-canvas') as HTMLCanvasElement, files[0].text, props.assets, observer);
+                build(document.getElementById('application-canvas') as HTMLCanvasElement, files[props.useTypescript ? 1 : 0].text, props.assets, observer);
             } else {
 
-                build(document.getElementById('application-canvas') as HTMLCanvasElement, files[0].text, props.assets, observer);
+                build(document.getElementById('application-canvas') as HTMLCanvasElement, files[props.useTypescript ? 1 : 0].text, props.assets, observer);
             }
         }
     });
