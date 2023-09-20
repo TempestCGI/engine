@@ -149,13 +149,16 @@ class WebglShader {
         if (this.glProgram)
             return;
 
+        const gl = device.gl;
+        if (gl.isContextLost()) {
+            return;
+        }
         let startTime = 0;
         Debug.call(() => {
             this.compileDuration = 0;
             startTime = now();
         });
 
-        const gl = device.gl;
         const glProgram = gl.createProgram();
         this.glProgram = glProgram;
 

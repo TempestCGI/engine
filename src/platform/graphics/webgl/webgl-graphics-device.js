@@ -329,8 +329,8 @@ class WebglGraphicsDevice extends GraphicsDevice {
 
         this._contextRestoredHandler = () => {
             Debug.log('pc.GraphicsDevice: WebGL context restored.');
-            this.restoreContext();
             this.contextLost = false;
+            this.restoreContext();
             this.fire('devicerestored');
         };
 
