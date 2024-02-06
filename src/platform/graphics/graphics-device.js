@@ -688,8 +688,10 @@ class GraphicsDevice extends EventHandler {
         const pixelRatio = Math.min(this._maxPixelRatio, platform.browser ? window.devicePixelRatio : 1);
         const w = Math.floor(width * pixelRatio);
         const h = Math.floor(height * pixelRatio);
-        if (w !== this.canvas.width || h !== this.canvas.height) {
+        if ((w !== this.canvas.width || h !== this.canvas.height) && (w < window.innerWidth * pixelRatio && h < window.innerHeight * pixelRatio)) {
             this.setResolution(w, h);
+        } else {
+            this.setResolution(width, height);
         }
     }
 
